@@ -229,6 +229,9 @@ jev:
 
   fake_profound_kicker:
     name: fake-profound kicker
+    # A property of the whole piece: every paragraph has a first and a
+    # last line, so this is asked once per document, never per block.
+    scope: document
     unslop: null
     threshold: 0.70
     instructions: >
@@ -242,6 +245,9 @@ jev:
 
   summary_recap_ending:
     name: summary-recap ending
+    # A property of the whole piece: every paragraph has a first and a
+    # last line, so this is asked once per document, never per block.
+    scope: document
     unslop: 25
     threshold: 0.70
     instructions: >
@@ -262,6 +268,9 @@ jev:
 
   throat_clearing:
     name: throat-clearing opener
+    # A property of the whole piece: every paragraph has a first and a
+    # last line, so this is asked once per document, never per block.
+    scope: document
     unslop: 23
     threshold: 0.70
     instructions: >
@@ -418,6 +427,9 @@ jev:
 
   synonym_cycling:
     name: synonym cycling
+    # A property of the whole piece: every paragraph has a first and a
+    # last line, so this is asked once per document, never per block.
+    scope: document
     unslop: 11
     threshold: 0.70
     instructions: >

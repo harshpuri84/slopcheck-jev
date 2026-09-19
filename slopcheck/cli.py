@@ -9,6 +9,7 @@ It never answers "did AI write this". It answers "line 4 is a binary contrast".
 Exit code is 0 unless --strict is passed.
 """
 import argparse
+import concurrent.futures as cf
 import pathlib
 import sys
 import time
@@ -30,14 +31,21 @@ def check(text, cfg, use_jev=True, key=None, timeout=20, by="document"):
         try:
             if by == "paragraph":
                 paras = lex.paragraphs(text)
-                blocks, _, u1 = judge.detect_blocks(paras, cfg, key, timeout)
-                calls, usages = u1.get("calls", len(paras)), [u1]
+                # Block-scope tells per paragraph, document-scope tells once,
+                # all in flight together.
+                with cf.ThreadPoolExecutor(max_workers=2) as ex:
+                    fb = ex.submit(judge.detect_blocks, paras, cfg, key, timeout)
+                    fd = ex.submit(judge.detect, text, cfg, key, timeout, "document")
+                    blocks, _, u1 = fb.result()
+                    probs, _, ud = fd.result()
+                calls = u1.get("calls", len(paras)) + 1
+                usages = [u1, ud]
             else:
                 probs, _, u1 = judge.detect(text, cfg, key, timeout)
                 calls, usages = 1, [u1]
         except judge.JevError as e:
             err = str(e)
-    findings = (gate.assemble_blocks(lexed, blocks, cfg) if by == "paragraph"
+    findings = (gate.assemble_blocks(lexed, blocks, probs, cfg) if by == "paragraph"
                 else gate.assemble(lexed, probs, cfg))
     stats = {"words": lexed.words, "units": len(lexed.units),
              "ms": (time.perf_counter() - t0) * 1000, "calls": calls,

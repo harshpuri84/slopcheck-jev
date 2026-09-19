@@ -71,6 +71,22 @@ a twelve-paragraph draft is one round trip and not twelve.
 
 The hook uses document mode. Paragraph mode is for checking a draft you are editing.
 
+**The two modes find different tells, and neither is a superset.** Measured on nine drafts:
+
+| Only document mode finds | Only paragraph mode finds |
+|---|---|
+| `feeling_not_mechanism` 3x, `binary_contrast` 2x, `rhetorical_setup` 2x, `colon_reveal` | `importance_puffery` 2x, `colon_reveal`, `fake_strong_verb`, `rhetorical_setup`, `feeling_not_mechanism` |
+
+Document mode sees a tell that spans paragraphs, or a piece that reads a certain way while no
+single block does. Paragraph mode sees one bad block that gets diluted across a long document
+and never crosses threshold.
+
+Four tells carry `scope: document` and are asked about the whole piece in both modes: the
+fake-profound kicker, the summary-recap ending, the throat-clearing opener, and synonym
+cycling. Every paragraph has a first line and a last line, so "is the last line an aphorism"
+has no meaning per block. Before that routing existed, the kicker fired on five of nine
+drafts in paragraph mode and none in document mode.
+
 ### Why the default does not quote the line
 
 The first version did. It made a second call that pinned each tell to a sentence, choosing

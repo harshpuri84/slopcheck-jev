@@ -58,8 +58,8 @@ def assemble(lexed, probs, cfg):
     return findings
 
 
-def assemble_blocks(lexed, blocks, cfg):
-    """Paragraph mode. One finding per (block, tell) that clears its threshold."""
+def assemble_blocks(lexed, blocks, doc_probs, cfg):
+    """Paragraph mode. Block-scope tells per block, document-scope tells once."""
     findings = [Finding(h.tell, h.name, "lex", h.line, h.unit, h.quote,
                         h.p, h.detail, h.fix, h.unslop) for h in lexed.hits]
     for line, text, probs in blocks:
@@ -69,5 +69,11 @@ def assemble_blocks(lexed, blocks, cfg):
                 tid, t["name"], "jev", line, 0, text[:110], probs[tid],
                 f"p={probs[tid]:.2f}, threshold {t['threshold']}",
                 t["fix"], t.get("unslop")))
+    for tid in fired(doc_probs, cfg)[0] if doc_probs else []:
+        t = cfg["jev"][tid]
+        findings.append(Finding(
+            tid, t["name"], "jev", 0, 0, "", doc_probs[tid],
+            f"p={doc_probs[tid]:.2f}, whole document",
+            t["fix"], t.get("unslop")))
     findings.sort(key=lambda f: (f.line, f.layer == "jev", -f.p))
     return findings

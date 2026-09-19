@@ -60,9 +60,19 @@ def _post(url, body, key, timeout):
     return out, (time.perf_counter() - t0) * 1000
 
 
-def detect(text, cfg, key=None, timeout=20):
-    """Call 1. One noul per semantic tell. Returns {tell_id: p_yes}, ms, tokens."""
+def detect(text, cfg, key=None, timeout=20, scope=None):
+    """One noul per semantic tell. Returns {tell_id: p_yes}, ms, tokens.
+
+    `scope` filters which tells are asked. A tell marked `scope: document` asks
+    about the whole piece (is the LAST line an aphorism, does it OPEN with a
+    stock preamble) and is meaningless per paragraph, because every paragraph
+    has a first line and a last line.
+    """
     meta, jev = cfg["meta"], cfg["jev"]
+    if scope == "block":
+        jev = {k: v for k, v in jev.items() if v.get("scope") != "document"}
+    elif scope == "document":
+        jev = {k: v for k, v in jev.items() if v.get("scope") == "document"}
     questions = {
         tid: {"type": "noul",
               "instructions": t["instructions"].strip(),
@@ -95,7 +105,7 @@ def detect_blocks(blocks, cfg, key=None, timeout=20, max_workers=8):
     t0 = time.perf_counter()
 
     def one(b):
-        return detect(b[1], cfg, key, timeout)
+        return detect(b[1], cfg, key, timeout, scope="block")
 
     out, tok = [], 0
     with cf.ThreadPoolExecutor(max_workers=min(max_workers, len(blocks))) as ex:
