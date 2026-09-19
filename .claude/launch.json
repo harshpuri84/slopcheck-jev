@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "slopcheck-demo",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "slopcheck.serve",
+        "--port",
+        "8781"
+      ],
+      "port": 8781
+    }
+  ]
+}

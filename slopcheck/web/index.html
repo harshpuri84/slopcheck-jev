@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>slopcheck</title>
+<style>
+:root{
+  --bg:#FAF9F5; --surface:#FFFFFF; --border:#E5E4DF; --border-soft:#EFEEE9;
+  --ink:#1F1E1C; --muted:#73706A; --faint:#A29E96;
+  --accent:#C15F3C; --accent-soft:#F4E5DE;
+  --undecided:#B8963E; --undecided-soft:#F6EEDB;
+  --quiet:#D9D7D0;
+  --mono:ui-monospace,"Geist Mono","SF Mono",Menlo,Consolas,monospace;
+  --sans:ui-sans-serif,-apple-system,"Inter","Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:36px 24px 80px}
+header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+h1{font-size:21px;font-weight:600;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:13.5px;max-width:64ch;margin:0 0 26px}
+.tag{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  border:1px solid var(--border);border-radius:99px;padding:2px 9px;background:var(--surface)}
+
+.grid{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:22px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px}
+.card h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);margin:0 0 12px}
+
+textarea{width:100%;min-height:200px;resize:vertical;font-family:var(--sans);font-size:14px;
+  line-height:1.6;color:var(--ink);background:var(--bg);border:1px solid var(--border);
+  border-radius:7px;padding:12px}
+textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.chip{font-family:var(--mono);font-size:11.5px;padding:4px 9px;border-radius:6px;cursor:pointer;
+  border:1px solid var(--border);background:var(--bg);color:var(--muted)}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip.dirty{border-color:#EAD9D2}
+
+button.run{width:100%;margin-top:6px;padding:11px;border-radius:7px;border:1px solid var(--accent);
+  background:var(--accent);color:#fff;font-size:14px;font-weight:550;cursor:pointer;font-family:var(--sans)}
+button.run:hover{background:#AA5334}
+button.run:disabled{opacity:.5;cursor:default}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border-soft);
+  border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:18px}
+.stat{background:var(--surface);padding:11px 13px}
+.stat .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+.stat .v{font-family:var(--mono);font-size:19px;margin-top:2px;font-variant-numeric:tabular-nums}
+.stat .v small{font-size:11px;color:var(--muted);font-weight:400}
+
+.bars{display:flex;flex-direction:column;gap:2px}
+.bar{display:grid;grid-template-columns:186px 1fr 52px;gap:10px;align-items:center;
+  padding:3px 0;border-radius:5px}
+.bar .lab{font-size:12.5px;color:var(--muted);text-align:right;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.bar.on .lab{color:var(--ink);font-weight:550}
+.bar.und .lab{color:var(--undecided)}
+.track{position:relative;height:17px;background:var(--bg);border:1px solid var(--border-soft);
+  border-radius:4px;overflow:hidden}
+/* the 0.40-0.60 band: where Jev is declining to answer */
+.track::before{content:"";position:absolute;left:40%;width:20%;top:0;bottom:0;
+  background:var(--undecided-soft)}
+.track::after{content:"";position:absolute;top:0;bottom:0;width:1px;background:var(--quiet);
+  left:var(--th,70%)}
+.fill{position:absolute;top:0;bottom:0;left:0;width:0;background:var(--quiet);
+  transition:width .45s cubic-bezier(.22,.8,.3,1)}
+.bar.on .fill{background:var(--accent)}
+.bar.und .fill{background:var(--undecided)}
+.bar .p{font-family:var(--mono);font-size:12px;color:var(--faint);text-align:right;
+  font-variant-numeric:tabular-nums}
+.bar.on .p{color:var(--accent)}
+.bar.und .p{color:var(--undecided)}
+
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;padding-top:12px;
+  border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;
+  vertical-align:-1px}
+
+.find{border-top:1px solid var(--border-soft);padding:13px 0}
+.find:first-of-type{border-top:0}
+.find .h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.find .nm{font-weight:600;font-size:13.5px}
+.find .meta{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.find blockquote{margin:7px 0 6px;padding:8px 11px;background:var(--bg);
+  border-left:2px solid var(--accent);border-radius:0 5px 5px 0;font-size:13px;color:var(--ink)}
+.find .fix{font-size:12.5px;color:var(--muted)}
+.pill{font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:99px;
+  border:1px solid var(--border);color:var(--muted);background:var(--bg)}
+.pill.jev{border-color:#E4CFC5;color:var(--accent)}
+.empty{color:var(--muted);font-size:13.5px;padding:8px 0}
+.err{background:#FBEFEA;border:1px solid #EBD2C7;color:#8C4326;padding:11px 13px;
+  border-radius:7px;font-size:13px;margin-bottom:16px}
+.note{font-size:12px;color:var(--faint);margin-top:14px;line-height:1.5}
+
+@media(max-width:640px){
+  .wrap{padding:22px 16px 60px}
+  /* A fixed label column squeezes the bar to nothing on a phone. Stack instead. */
+  .bar{grid-template-columns:1fr 46px;grid-template-areas:"lab lab" "track p";
+    gap:3px 8px;padding:7px 0;border-bottom:1px solid var(--border-soft)}
+  .bar .lab{grid-area:lab;text-align:left;font-size:12px}
+  .track{grid-area:track}
+  .bar .p{grid-area:p}
+  .stats{grid-template-columns:1fr 1fr}
+  .stat .v{font-size:17px}
+  textarea{min-height:150px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>slopcheck</h1>
+    <span class="tag" id="model">jev</span>
+    <span class="tag" id="qcount">15 questions</span>
+  </header>
+  <p class="sub">Fifteen typed judgments about one passage, asked in parallel in a single call.
+     Every bar is a calibrated probability, not a number a model wrote. The shaded strip is
+     0.40 to 0.60, where Jev is declining to answer rather than guessing.</p>
+
+  <div id="err"></div>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>Passage</h2>
+        <textarea id="t" spellcheck="false" placeholder="Paste prose here."></textarea>
+        <div class="chips" id="chips"></div>
+        <button class="run" id="go">Ask Jev</button>
+        <p class="note" id="hint">One call. Fifteen questions. They run in parallel and cannot
+          see each other's answers.</p>
+      </div>
+    </div>
+
+    <div>
+      <div class="stats">
+        <div class="stat"><div class="k">Call 1</div><div class="v" id="s-ms">—</div></div>
+        <div class="stat"><div class="k">Questions</div><div class="v" id="s-q">—</div></div>
+        <div class="stat"><div class="k">Input tokens</div><div class="v" id="s-tok">—</div></div>
+        <div class="stat"><div class="k">Per 1,000</div><div class="v" id="s-cost">—</div></div>
+      </div>
+
+      <div class="card" style="margin-bottom:22px">
+        <h2>Probabilities</h2>
+        <div class="bars" id="bars"></div>
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i>over threshold</span>
+          <span><i style="background:var(--undecided)"></i>0.40–0.60, not answering</span>
+          <span><i style="background:var(--quiet)"></i>below threshold</span>
+          <span><i style="background:var(--quiet);width:2px;height:12px;border-radius:0"></i>threshold</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Findings <span id="callms" class="tag" style="text-transform:none;letter-spacing:0"></span></h2>
+        <div id="out"><div class="empty">Run a passage to see which line each judgment lands on.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let TELLS = [], BAND = [0.4, 0.6], SAMPLES = [];
+const $ = id => document.getElementById(id);
+
+function drawBars(probs) {
+  $('bars').innerHTML = TELLS.map(t => {
+    const p = probs ? probs[t.id] : null;
+    const und = p !== null && p >= BAND[0] && p < BAND[1];
+    const on = p !== null && !und && p >= t.threshold;
+    return `<div class="bar ${on ? 'on' : ''} ${und ? 'und' : ''}" data-id="${t.id}">
+      <div class="lab" title="${t.name}">${t.name}</div>
+      <div class="track" style="--th:${t.threshold * 100}%">
+        <div class="fill" data-w="${p === null ? 0 : p * 100}"></div></div>
+      <div class="p">${p === null ? '' : p.toFixed(2)}</div></div>`;
+  }).join('');
+  // One frame later, every bar transitions at the same time. No stagger: the
+  // simultaneity is the thing being demonstrated.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll('.fill').forEach(f => f.style.width = f.dataset.w + '%');
+  }));
+}
+
+function tellById(id) { return TELLS.find(t => t.id === id) || { name: id, fix: '' }; }
+
+function render(d, loc) {
+  const rows = [];
+  for (const h of d.lex) rows.push({
+    layer: 'lex', name: h.name, quote: h.quote, meta: h.detail,
+    fix: h.fix, rule: h.unslop ? 'unslop ' + h.unslop : 'no-ai-slop', line: h.line });
+  for (const id of d.fired) {
+    const t = tellById(id), pick = loc && loc.picked[id];
+    const u = pick ? d.units.find(x => x.n === pick.unit) : null;
+    rows.push({ layer: 'jev', name: t.name, quote: u ? u.raw : '(whole passage)',
+      meta: `p=${d.probs[id].toFixed(2)}` + (pick ? `, line ${pick.unit} at confidence ${pick.confidence.toFixed(2)}` : ', no line named'),
+      fix: t.fix, rule: t.unslop ? 'unslop ' + t.unslop : 'no-ai-slop',
+      line: u ? u.line : 0 });
+  }
+  if (!rows.length) { $('out').innerHTML = `<div class="empty">Nothing flagged in ${d.words} words.</div>`; return; }
+  rows.sort((a, b) => (a.line || 999) - (b.line || 999));
+  $('out').innerHTML = rows.map(r => `<div class="find">
+    <div class="h"><span class="pill ${r.layer}">${r.layer}</span>
+      <span class="nm">${r.name}</span>
+      <span class="meta">${r.line ? 'line ' + r.line + ' · ' : ''}${r.rule} · ${r.meta}</span></div>
+    <blockquote>${r.quote.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</blockquote>
+    <div class="fix">${r.fix}</div></div>`).join('');
+}
+
+async function run() {
+  const text = $('t').value.trim();
+  if (!text) return;
+  $('err').innerHTML = ''; $('go').disabled = true; $('go').textContent = 'Asking…';
+  $('callms').textContent = '';
+  $('out').innerHTML = '<div class="empty">Waiting on call 1…</div>';
+  drawBars(null);
+
+  const t0 = performance.now();
+  const tick = setInterval(() => $('s-ms').innerHTML =
+    Math.round(performance.now() - t0) + '<small> ms</small>', 16);
+  try {
+    const d = await (await fetch('/api/detect', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) })).json();
+    clearInterval(tick);
+    if (d.error) throw new Error(d.error);
+
+    $('s-ms').innerHTML = d.ms + '<small> ms</small>';
+    $('s-q').innerHTML = d.questions + '<small> in 1 call</small>';
+    $('s-tok').textContent = d.tokens;
+    $('s-cost').innerHTML = '$' + (d.cost * 1000).toFixed(3);
+    drawBars(d.probs);
+
+    let loc = null;
+    if (d.fired.length) {
+      $('out').innerHTML = `<div class="empty">${d.fired.length} fired. Call 2 is asking which line…</div>`;
+      loc = await (await fetch('/api/locate', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, fired: d.fired }) })).json();
+      $('callms').textContent = `call 2: ${loc.ms} ms`;
+    } else {
+      $('callms').textContent = 'no call 2 needed';
+    }
+    render(d, loc);
+    $('hint').textContent = d.undecided.length
+      ? `${d.undecided.length} judgment(s) landed in the 0.40–0.60 band. Jev is not answering those, and the gate suppresses them rather than reading them as a weak yes.`
+      : 'Every judgment landed outside the undecided band.';
+  } catch (e) {
+    clearInterval(tick);
+    $('err').innerHTML = `<div class="err">${e.message}</div>`;
+    $('out').innerHTML = '<div class="empty">No result.</div>';
+  } finally {
+    $('go').disabled = false; $('go').textContent = 'Ask Jev';
+  }
+}
+
+(async () => {
+  const b = await (await fetch('/api/boot')).json();
+  TELLS = b.tells; BAND = b.band; SAMPLES = b.samples;
+  $('model').textContent = b.model;
+  $('qcount').textContent = TELLS.length + ' questions';
+  $('chips').innerHTML = SAMPLES.map((s, i) =>
+    `<span class="chip ${s.dirty ? 'dirty' : ''}" data-i="${i}">${s.id}</span>`).join('');
+  $('chips').onclick = e => {
+    const i = e.target.dataset.i;
+    if (i !== undefined) { $('t').value = SAMPLES[i].text; }
+  };
+  $('go').onclick = run;
+  $('t').addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') run();
+  });
+  drawBars(null);
+  if (SAMPLES.length) $('t').value = SAMPLES.find(s => s.dirty).text;
+})();
+</script>
+</body>
+</html>

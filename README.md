@@ -71,6 +71,27 @@ Without a key it still runs. `--no-jev` gives the regex layer alone, no network.
 
 For the Claude Code hook, see [hooks/INSTALL.md](hooks/INSTALL.md).
 
+## Demo
+
+```bash
+python -m slopcheck.serve        # http://localhost:8781
+```
+
+A local page that shows what Jev returns, not just what slopcheck concludes: all fifteen
+probabilities, the threshold on each bar, and the 0.40 to 0.60 strip where the model is
+declining to answer. The key stays in the server process; the browser never sees it.
+
+It makes two requests, matching the two calls, so the architecture is visible rather than
+hidden behind one spinner. Call 1 fills fifteen bars at once in roughly 600 ms. Call 2 runs
+only when something fired, and the header says "no call 2 needed" when nothing did.
+
+Six one-click samples, three dirty and three clean, plus a text box. `dirty-02` fires
+eleven of the fifteen.
+
+The design test this had to pass, from the author's own spec: would the demo look identical
+with a cheap fast LLM behind it? A page that lists AI tells would. Fifteen calibrated
+probabilities landing together, with a visible band where the model refuses, would not.
+
 ## The tells
 
 Fifteen semantic tells and seven mechanical ones, taken from two skills:
