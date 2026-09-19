@@ -4,3 +4,6 @@ __pycache__/
 .env
 # Never ship: this holds text extracted from a private vault.
 bench/local/
+*.egg-info/
+build/
+dist/

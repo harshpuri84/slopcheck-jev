@@ -12,6 +12,10 @@ let the judge anchor on the arm they expect to win.
 import json
 import pathlib
 import random
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+from normalise import canon
 
 LOCAL = pathlib.Path(__file__).parent / "local"
 ARMS = ["a", "b", "c"]
@@ -33,7 +37,7 @@ def main():
             for fi in r["findings"]:
                 # unit 0 means the tell fired but no line was named. Still a claim,
                 # so it is adjudicated at passage level rather than dropped.
-                key = (r["passage"], fi["unit"], fi["name"])
+                key = (r["passage"], fi["unit"], canon(fi["name"]))
                 pool.setdefault(key, set()).add(arm)
                 by_arm[arm].add(key)
 
@@ -51,6 +55,13 @@ def main():
     print(f"\npool: {len(rows)} rows to adjudicate, from arms {sorted(by_arm)}")
     for a, v in sorted(by_arm.items()):
         print(f"  arm {a.upper()} contributed {len(v)}")
+    if len(by_arm) > 1:
+        sets = list(by_arm.values())
+        shared = set.intersection(*sets)
+        print(f"  all arms agree on {len(shared)} of {len(rows)}")
+        for a, v in sorted(by_arm.items()):
+            only = v - set.union(*[x for k, x in by_arm.items() if k != a])
+            print(f"  only arm {a.upper()}: {len(only)}")
     print(f"\nMark each row y or n in the first column of:\n  {LOCAL/'adjudicate.tsv'}")
     print("  y = the tell really is present on that sentence")
     print("  n = false positive")
