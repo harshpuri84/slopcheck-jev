@@ -135,8 +135,19 @@ def run(text, cfg):
     src = text.splitlines()
     words = len(re.findall(r"\b[\w'-]+\b", masked))
 
-    def add(tid, name, unit, line, quote, detail, fix, unslop):
-        hits.append(LexHit(tid, name, unit, line, quote, detail, fix, unslop=unslop))
+    def window(quote, col, span=0, width=96):
+        """Quote around the match. A hit at column 196 must not quote from column 1."""
+        if col is None or len(quote) <= width:
+            return quote
+        start = max(0, col - width // 2)
+        end = min(len(quote), start + width)
+        return ("..." if start else "") + quote[start:end] + ("..." if end < len(quote) else "")
+
+    def add(tid, name, unit, line, quote, detail, fix, unslop, col=None):
+        # `col` indexes src_line, the whole source line, not the unit's own
+        # sentence. Quote from the string the column actually belongs to.
+        q = window(src_line, col) if col is not None else quote
+        hits.append(LexHit(tid, name, unit, line, q, detail, fix, unslop=unslop))
 
     for lineno, raw in enumerate(masked.splitlines(), 1):
         if not raw.strip():
@@ -151,18 +162,20 @@ def run(text, cfg):
             if kind == "pattern":
                 for m in re.finditer(t["pattern"], raw, re.M):
                     add(tid, t["name"], un, lineno, uq,
-                        f"matched {m.group(0)[:40]!r}", t["fix"], t.get("unslop"))
+                        f"matched {m.group(0)[:40]!r}", t["fix"], t.get("unslop"),
+                        col=m.start())
             elif kind == "words":
                 for w in t["words"]:
                     for m in re.finditer(rf"(?<![\w-]){re.escape(w)}(?![\w-])", low):
                         add(tid, f"{t['name']}: {w}", un, lineno, uq,
-                            f"{w!r} at column {m.start() + 1}", t["fix"], t.get("unslop"))
+                            f"{w!r} at column {m.start() + 1}", t["fix"],
+                            t.get("unslop"), col=m.start())
             elif kind == "phrases":
                 for ph in t["phrases"]:
                     i = low.find(ph)
                     while i >= 0:
                         add(tid, f"{t['name']}: {ph!r}", un, lineno, uq,
-                            f"at column {i + 1}", t["fix"], t.get("unslop"))
+                            f"at column {i + 1}", t["fix"], t.get("unslop"), col=i)
                         i = low.find(ph, i + len(ph))
 
     for tid, t in lex.items():

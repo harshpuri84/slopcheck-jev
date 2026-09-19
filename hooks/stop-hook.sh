@@ -27,7 +27,8 @@ INPUT=$(cat 2>/dev/null)
 
 # No jq: hand the whole job to the python fallback, which parses it itself.
 if ! command -v jq >/dev/null 2>&1; then
-  printf '%s' "$INPUT" | python3 "$DIR/hooks/stop_hook.py" 2>&1 >&2
+  printf '%s' "$INPUT" | PYTHONPATH="$DIR${PYTHONPATH:+:$PYTHONPATH}" \
+    python3 "$DIR/hooks/stop_hook.py" 2>&1 >&2
   exit 0
 fi
 
@@ -51,7 +52,8 @@ TEXT=$(printf '%s\n' "$TEXT" | awk '/^[[:space:]]*```/{f=!f;next} !f')
 WORDS=$(printf '%s' "$TEXT" | wc -w | tr -d ' ')
 [ "$WORDS" -lt "$MIN" ] && exit 0
 
-printf '%s\n' "$TEXT" | python3 -m slopcheck - \
+# PYTHONPATH so the hook works without an install, from any directory.
+printf '%s\n' "$TEXT" | PYTHONPATH="$DIR${PYTHONPATH:+:$PYTHONPATH}" python3 -m slopcheck - \
   --no-color \
   --timeout "${SLOPCHECK_TIMEOUT:-6}" \
   ${SLOPCHECK_NO_JEV:+--no-jev} \

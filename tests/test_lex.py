@@ -117,3 +117,18 @@ def test_promotional_and_metaphor_cite_their_own_rule():
 
 def test_empty_adverb_caught():
     assert "empty_adverb" in tells("The change significantly improved the throughput.")
+
+
+def test_quote_windows_around_a_late_match():
+    line = "x" * 180 + " the flywheel is here " + "y" * 40
+    h = [x for x in lex.run(line, CFG).hits if x.tell == "abstract_metaphor"]
+    assert len(h) == 1
+    assert "flywheel" in h[0].quote          # the reader can see the problem
+    assert h[0].quote.startswith("...")      # and knows text was cut
+
+
+def test_two_occurrences_on_one_line_quote_differently():
+    line = "The moat is here. " + "z" * 150 + " and another moat at the end."
+    q = [x.quote for x in lex.run(line, CFG).hits if x.tell == "abstract_metaphor"]
+    assert len(q) == 2
+    assert q[0] != q[1]
