@@ -5,12 +5,10 @@
 
 The API key stays in this process. The browser never sees it.
 
-Two endpoints, matching the two calls, so the architecture is visible in the UI
-rather than hidden behind one spinner:
+One endpoint, because there is one call:
 
   POST /api/detect   15 nouls over the passage, in ONE Jev call. Returns every
                      probability, not just the ones over threshold.
-  POST /api/locate   one choice per fired tell, over the numbered units.
 """
 import argparse
 import json
@@ -89,22 +87,10 @@ class Handler(BaseHTTPRequestHandler):
                     "tokens": usage.get("input_tokens"),
                     "cost": judge.cost_usd(usage),
                     "questions": len(CFG["jev"]),
-                    "units": [{"n": u.n, "text": u.text, "raw": u.raw, "line": u.line}
-                              for u in lexed.units],
                     "lex": [{"tell": h.tell, "name": h.name, "line": h.line,
                              "quote": h.quote, "detail": h.detail, "fix": h.fix,
                              "unslop": h.unslop} for h in lexed.hits],
                     "words": lexed.words})
-
-            if self.path == "/api/locate":
-                lexed = lex.run(text, CFG)
-                ids = b.get("fired") or []
-                picked, ms, usage = judge.locate(lexed.units, ids, CFG)
-                return self._send(200, {
-                    "picked": {k: {"unit": v[0], "confidence": v[1]}
-                               for k, v in picked.items()},
-                    "ms": round(ms), "tokens": usage.get("input_tokens"),
-                    "cost": judge.cost_usd(usage)})
 
             self._send(404, {"error": "not found"})
         except judge.JevError as e:

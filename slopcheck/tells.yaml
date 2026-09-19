@@ -11,8 +11,6 @@ meta:
   url: https://api.typesafe.ai/v1/systemone
   # A noul inside this band means the model is not answering. Suppress it.
   undecided_band: [0.40, 0.60]
-  # Call 2 only runs for tells at or above their report threshold in call 1.
-  locate_min_confidence: 0.55
 
 lex:
   em_dash:
@@ -227,7 +225,6 @@ jev:
       false: >
         Every claim is stated directly. A plain negation of a fact, such as "the
         run did not finish", is not this pattern.
-    locate: Which numbered line is built as a negated contrast?
     fix: State the second half directly and delete the first.
 
   fake_profound_kicker:
@@ -241,7 +238,6 @@ jev:
     criteria:
       true: The last line is a quotable abstraction, a rhetorical question, or a cute metaphor.
       false: The last line states a fact, a number, an instruction, or what happens next.
-    locate: Which numbered line is the aphoristic or mic-drop ending?
     fix: Delete it. End on the clearest concrete sentence already present.
 
   summary_recap_ending:
@@ -262,7 +258,6 @@ jev:
       false: >
         The passage ends on a specific fact, a number, a next action, or an instruction,
         with no summarising move.
-    locate: Which numbered line begins the closing restatement?
     fix: Cut it. End on the last concrete point.
 
   throat_clearing:
@@ -278,7 +273,6 @@ jev:
       false: >
         Every sentence carries content. A personal aside that supplies real context,
         tension or character is not throat-clearing.
-    locate: Which numbered line delays the point with a stock preamble?
     fix: Delete the preamble and state the point.
 
   faux_insight:
@@ -292,7 +286,6 @@ jev:
     criteria:
       true: A claim is introduced by asserting that others fail to see it.
       false: Claims stand on their own without a preamble about what others miss.
-    locate: Which numbered line flatters the writer before making its claim?
     fix: Cut the setup. Let the claim stand alone.
 
   colon_reveal:
@@ -308,7 +301,6 @@ jev:
       false: >
         Colons appear only before lists, labels, quotes or code, or do not appear
         at all.
-    locate: Which numbered line uses a colon for a dramatic reveal?
     fix: Rewrite as a plain sentence.
 
   superficial_ing:
@@ -325,7 +317,6 @@ jev:
       false: >
         Trailing clauses add a concrete consequence, mechanism or number, or there
         are none.
-    locate: Which numbered line ends with a participle clause that asserts significance?
     fix: Replace it with the concrete consequence, or delete it.
 
   importance_puffery:
@@ -339,7 +330,6 @@ jev:
     criteria:
       true: Significance is asserted rather than shown.
       false: Facts are stated plainly and the reader is left to judge their weight.
-    locate: Which numbered line asserts importance instead of stating the fact?
     fix: State the fact. Delete the claim about its importance.
 
   weasel_attribution:
@@ -353,7 +343,6 @@ jev:
     criteria:
       true: A claim is sourced to an unnamed group or body of work.
       false: Sources are named, or claims are made in the writer's own voice.
-    locate: Which numbered line attributes a claim to an unnamed authority?
     fix: Name the source or cut the claim.
 
   fake_strong_verb:
@@ -366,7 +355,6 @@ jev:
     criteria:
       true: An inflated verb phrase replaces a plain "is" or "has".
       false: Plain verbs are used, or the verb carries real meaning the plain word would lose.
-    locate: Which numbered line uses an inflated verb in place of "is" or "has"?
     fix: Use "is" or "has".
 
   forced_triad:
@@ -386,7 +374,6 @@ jev:
       false: >
         Every three-item list has three concrete, distinct, same-kind items, or the
         passage contains no list of three.
-    locate: Which numbered line pads a list to three?
     fix: Use the natural number.
 
   feeling_not_mechanism:
@@ -405,7 +392,6 @@ jev:
       false: >
         Claims name a mechanism, a number, a named component, or something the reader
         can do or check.
-    locate: Which numbered line names a feeling where a mechanism or number belongs?
     fix: Name the mechanism or the number. If neither exists, cut the sentence.
 
   hidden_actor_passive:
@@ -428,7 +414,6 @@ jev:
         There is no such sentence. Sentences with a non-human subject that still performs
         its own verb are active, not passive: "the solver reports them", "the queue drains
         by hand", "retries stop after four attempts", "panel count is not the metric".
-    locate: Which numbered line hides a known actor behind a passive verb?
     fix: Name the actor and make it the subject.
 
   synonym_cycling:
@@ -442,7 +427,6 @@ jev:
     criteria:
       true: A single referent is renamed across nearby sentences with no change in meaning.
       false: Each term names a distinct thing, or one term is repeated consistently.
-    locate: Which numbered line renames something already named differently above?
     fix: Pick one word and repeat it.
 
   rhetorical_setup:
@@ -458,5 +442,4 @@ jev:
       false: >
         Points are made directly. A genuine question left open for the reader is not
         this pattern.
-    locate: Which numbered line poses a question or teaser for effect?
     fix: Drop the setup and make the point.

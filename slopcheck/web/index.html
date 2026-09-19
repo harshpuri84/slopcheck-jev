@@ -121,7 +121,9 @@ button.run:disabled{opacity:.5;cursor:default}
   </header>
   <p class="sub">Fifteen typed judgments about one passage, asked in parallel in a single call.
      Every bar is a calibrated probability, not a number a model wrote. The shaded strip is
-     0.40 to 0.60, where Jev is declining to answer rather than guessing.</p>
+     0.40 to 0.60, where Jev is declining to answer rather than guessing. One call, always:
+     the model returns typed answers, not text, so there is nothing to parse and nothing to
+     wait for twice.</p>
 
   <div id="err"></div>
 
@@ -139,7 +141,7 @@ button.run:disabled{opacity:.5;cursor:default}
 
     <div>
       <div class="stats">
-        <div class="stat"><div class="k">Call 1</div><div class="v" id="s-ms">—</div></div>
+        <div class="stat"><div class="k">One call</div><div class="v" id="s-ms">—</div></div>
         <div class="stat"><div class="k">Questions</div><div class="v" id="s-q">—</div></div>
         <div class="stat"><div class="k">Input tokens</div><div class="v" id="s-tok">—</div></div>
         <div class="stat"><div class="k">Per 1,000</div><div class="v" id="s-cost">—</div></div>
@@ -157,7 +159,7 @@ button.run:disabled{opacity:.5;cursor:default}
       </div>
 
       <div class="card">
-        <h2>Findings <span id="callms" class="tag" style="text-transform:none;letter-spacing:0"></span></h2>
+        <h2>Over threshold <span id="callms" class="tag" style="text-transform:none;letter-spacing:0"></span></h2>
         <div id="out"><div class="empty">Run a passage to see which line each judgment lands on.</div></div>
       </div>
     </div>
@@ -188,18 +190,16 @@ function drawBars(probs) {
 
 function tellById(id) { return TELLS.find(t => t.id === id) || { name: id, fix: '' }; }
 
-function render(d, loc) {
+function render(d) {
   const rows = [];
   for (const h of d.lex) rows.push({
     layer: 'lex', name: h.name, quote: h.quote, meta: h.detail,
     fix: h.fix, rule: h.unslop ? 'unslop ' + h.unslop : 'no-ai-slop', line: h.line });
   for (const id of d.fired) {
-    const t = tellById(id), pick = loc && loc.picked[id];
-    const u = pick ? d.units.find(x => x.n === pick.unit) : null;
-    rows.push({ layer: 'jev', name: t.name, quote: u ? u.raw : '(whole passage)',
-      meta: `p=${d.probs[id].toFixed(2)}` + (pick ? `, line ${pick.unit} at confidence ${pick.confidence.toFixed(2)}` : ', no line named'),
-      fix: t.fix, rule: t.unslop ? 'unslop ' + t.unslop : 'no-ai-slop',
-      line: u ? u.line : 0 });
+    const t = tellById(id);
+    rows.push({ layer: 'jev', name: t.name, quote: '',
+      meta: `p=${d.probs[id].toFixed(2)} over ${t.threshold}`,
+      fix: t.fix, rule: t.unslop ? 'unslop ' + t.unslop : 'no-ai-slop', line: 0 });
   }
   if (!rows.length) { $('out').innerHTML = `<div class="empty">Nothing flagged in ${d.words} words.</div>`; return; }
   rows.sort((a, b) => (a.line || 999) - (b.line || 999));
@@ -234,17 +234,8 @@ async function run() {
     $('s-cost').innerHTML = '$' + (d.cost * 1000).toFixed(3);
     drawBars(d.probs);
 
-    let loc = null;
-    if (d.fired.length) {
-      $('out').innerHTML = `<div class="empty">${d.fired.length} fired. Call 2 is asking which line…</div>`;
-      loc = await (await fetch('/api/locate', { method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, fired: d.fired }) })).json();
-      $('callms').textContent = `call 2: ${loc.ms} ms`;
-    } else {
-      $('callms').textContent = 'no call 2 needed';
-    }
-    render(d, loc);
+    $('callms').textContent = `${d.fired.length} over threshold`;
+    render(d);
     $('hint').textContent = d.undecided.length
       ? `${d.undecided.length} judgment(s) landed in the 0.40–0.60 band. Jev is not answering those, and the gate suppresses them rather than reading them as a weak yes.`
       : 'Every judgment landed outside the undecided band.';

@@ -1,11 +1,16 @@
 """Ask Jev which tells a passage contains, then which line each one is on.
 
-Call 1: one noul per semantic tell, over the whole passage. Always runs.
-Call 2: one choice per fired tell, over the numbered units. Usually does not run.
+One call. One noul per semantic tell, over the whole passage, every time.
 
-Jev is never asked whether a human should care. That is policy and it lives in
-gate.py. Jev is never asked to write a quote either; it selects a unit number
-that lex.py produced.
+There was a second call that pinned each tell to a line. It is gone. Jev returns
+typed answers, not text, so the only way to get a quoted sentence was to ask a
+second round of questions about lines. That bought one sentence and cost 774ms,
+4.6x the tokens, and every defect in the detector: a cap that could only ever
+report one instance per tell, a per-line question that fired on 25 of 47 lines,
+batching, and two thread pools. The report names the tell and its probability.
+
+Jev is never asked whether a human should care. That is policy, and policy lives
+in gate.py.
 """
 import json
 import os
@@ -14,7 +19,6 @@ import time
 import urllib.error
 import urllib.request
 
-NONE = "__no_line__"
 PRICE_PER_MTOK = 0.042  # USD per million input tokens, measured Sep 2026
 
 
@@ -68,35 +72,6 @@ def detect(text, cfg, key=None, timeout=20):
                     api_key(key), timeout)
     probs = {tid: a.get("noul", 0.0) for tid, a in out["answers"].items()}
     return probs, ms, out.get("usage", {})
-
-
-def locate(units, tell_ids, cfg, key=None, timeout=20):
-    """Call 2. One choice per fired tell, over the numbered units.
-
-    The options are exactly the units lex.py produced, so a returned line is
-    always a line that exists in the source.
-    """
-    if not tell_ids or not units:
-        return {}, 0.0, {}
-    meta, jev = cfg["meta"], cfg["jev"]
-    options = {str(u.n): u.text for u in units}
-    options[NONE] = "No line in the list matches the description"
-    numbered = "\n".join(f"{u.n}. {u.text}" for u in units)
-    questions = {
-        tid: {"type": "choice",
-              "instructions": jev[tid]["locate"].strip(),
-              "criteria": options}
-        for tid in tell_ids}
-    out, ms = _post(meta["url"],
-                    {"state": {"passage": numbered}, "model": meta["model"],
-                     "questions": questions},
-                    api_key(key), timeout)
-    picked = {}
-    for tid, a in out["answers"].items():
-        c = a.get("choice")
-        if c and c != NONE and c.isdigit():
-            picked[tid] = (int(c), a.get("confidence", 0.0))
-    return picked, ms, out.get("usage", {})
 
 
 def cost_usd(*usages):

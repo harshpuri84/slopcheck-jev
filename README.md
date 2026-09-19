@@ -25,51 +25,60 @@ slopcheck draft.md  4 findings in 61 words
 
 ## How it works
 
-Three layers. Code finds, the model judges, code decides.
+Two layers. Code finds what a regex can settle, one Jev call judges the rest, code decides.
 
 | Layer | Owns | Cost | Latency |
 |---|---|---|---|
 | Lex, regex | 18 tells: patterns, word lists, phrase lists, density, length | $0 | ~6 ms |
-| Judge, [Jev](https://typesafe.ai) | 15 tells that need reading | $0.18 / 1,000 passages | 620 ms clean, 1,250 ms dirty |
+| Judge, [Jev](https://typesafe.ai) | 15 tells that need reading | $0.105 / 1,000 | ~575 ms |
 | Gate, code | Every threshold | $0 | 0 ms |
 
 Jev is a System One model. It returns typed answers and probabilities instead of text.
 
 **Lex** handles anything a regex can settle: em dashes, curly quotes, title-case headings,
 decorative emoji, inline-header lists, boldface density, sentence length, stacked hedging,
-and six word or phrase lists (AI vocabulary, promotional language, abstract metaphor nouns,
-filler phrases, chatbot phrases, sycophantic openers, often-empty adverbs). Exact and free.
-Jev never sees these.
+and six word or phrase lists. Exact, free, and it quotes the line, because a regex knows
+where it matched.
 
-**Judge** makes two calls, and the second usually does not run:
-
-1. Fifteen `noul` questions over the whole passage, in parallel. "Does this passage contain
-   a binary contrast." One round trip.
-2. For each tell that fired, one `choice` over the numbered sentences. "Which line is it."
-
-Call 2 is a selection, not a generation. The options are exactly the sentences the splitter
-produced, so a quoted line is always a line that exists in the source. The model cannot
-invent a quote.
+**Judge** is one call. Fifteen `noul` questions over the whole passage, in parallel, and
+they cannot see each other's answers. It reports which tells are present and with what
+probability. It does not report which line, and that is deliberate: see below.
 
 **Gate** owns every threshold. A `noul` between 0.40 and 0.60 means the model is not
-answering, so it is suppressed rather than reported as a weak yes. Change a threshold in
+answering, so it is suppressed rather than read as a weak yes. Change a threshold in
 `slopcheck/tells.yaml` and nothing re-runs.
 
 The model is never asked whether a human should care. That is policy, and policy lives in
 code.
 
-## Install
+### Why it does not quote the line
 
-```bash
-git clone https://github.com/<you>/slopcheck && cd slopcheck
-pip install -e .
-echo 'TYPESAFE_API_KEY=...' > .env      # from console.typesafe.ai/settings/keys
-slopcheck bench/corpus/dirty-01.md
-```
+The first version did. It made a second call that pinned each tell to a sentence, choosing
+from lines the splitter produced so it could not fabricate a quote.
 
-Without a key it still runs. `--no-jev` gives the regex layer alone, no network.
+Deleting that made the detector better on every axis:
 
-For the Claude Code hook, see [hooks/INSTALL.md](hooks/INSTALL.md).
+| | With line location | Without |
+|---|---|---|
+| Precision | 0.80 | **0.95** |
+| F1 | 0.44 | **0.62** |
+| Latency per passage | 1,365 ms | **575 ms** |
+| Cost per 1,000 | $0.485 | **$0.105** |
+| Jev calls | 1 to 6 | Always 1 |
+| Lines of Python | ~760 | **564** |
+
+Precision went up when the feature came out. The location layer was adding false positives,
+not only latency.
+
+The deeper reason it had to go: Jev returns typed answers, not text, which is why its output
+is free. It cannot hand back a list of findings with quotes, because that is generation. The
+only way to get a sentence was a second round of typed questions about lines, and that one
+sentence cost 774 ms, 4.6x the tokens, and every defect the detector had. A cap that could
+only report one instance per tell. A per-line question that fired on 25 of 47 lines once the
+cap was lifted. Batching, thread pools, and a second vocabulary of questions to maintain.
+
+The requirement came from `no-ai-slop`'s detect mode, which quotes lines because a frontier
+model writing prose can. It was never a requirement of this tool.
 
 ## Demo
 
@@ -175,67 +184,44 @@ wrong, not the detector.
 These questions were tuned against these six fixtures only, never against the private
 corpus below, so the benchmark labels stay uncontaminated.
 
-### Real drafts, 9 passages, 221 sentences
+### Real drafts, 9 passages
 
 A private set of LinkedIn drafts, so the text is not in this repo. The author adjudicated
-all 59 pooled rows: 52 confirmed tells, 7 false positives.
+all 45 pooled rows: 43 confirmed tells, 2 false positives.
 
 | Arm | TP | FP | FN | Precision | Recall* | F1 | ms/passage | $/1,000 |
 |---|---|---|---|---|---|---|---|---|
-| A, regex only | 1 | 2 | 51 | 0.33 | 0.02 | 0.04 | 6 | $0 |
-| B, regex + Jev | 16 | 4 | 36 | 0.80 | 0.31 | 0.44 | 1,161 | $0.19 |
-| C, Claude + no-ai-slop | 43 | 3 | 9 | 0.93 | 0.83 | **0.88** | 21,387 | not measurable |
+| A, regex only | 2 | 1 | 41 | 0.67 | 0.05 | 0.09 | 6 | $0 |
+| B, regex + Jev | 20 | 1 | 23 | **0.95** | 0.47 | 0.62 | **575** | **$0.105** |
+| C, Claude + no-ai-slop | 33 | 1 | 10 | 0.97 | 0.77 | 0.86 | 21,387 | not measurable |
 
-`*` recall against the pool. n = 59 rows, 52 positives.
+`*` recall against the pool. n = 45 rows, 43 positives.
 
-**Arm C wins on quality and it is not close.** Twice the F1. It is also 18 times slower.
+**On precision the two are level: 0.95 against 0.97.** When Jev speaks it is almost always
+right. It finds 61% of what the frontier model finds, 37 times faster, for a tenth of a cent
+per thousand passages.
 
-The regex layer found almost nothing, as it did on the synthetic set: these drafts had
-already been through an `unslop` pass, so no em dash, banned word or curly quote survived.
-One of its three findings was correct.
+**Arm C is better at the task and cannot do the job.** 21 seconds per passage cannot run in
+a `Stop` hook after every turn. The first version of this README scored the two on F1 as if
+they were interchangeable and never applied the constraint the tool exists under. Under a
+two-second budget, arm C is not eligible.
 
-### Why arm B missed 36
+The regex layer found almost nothing, as on the synthetic set: these drafts had already been
+through an `unslop` pass, so no em dash, banned word or curly quote survived. Two of its
+three findings were correct.
 
-Worth separating, because a third of the gap is this repo's architecture rather than the
-model's judgment.
+### What changed between versions
 
-| Cause | Count | What it is |
-|---|---|---|
-| The one-line cap | 12 | Call 2 asks a `choice` per tell, so it names exactly one line. A passage with three binary contrasts can only ever report one |
-| No such tell | 7 | `dramatic_fragmentation`, `robotic_rhythm` and `negative_listing` are in `no-ai-slop` and not here |
-| Genuine miss | 17 | The passage-level noul did not fire. Mostly `faux_insight` (5) and `fake_profound_kicker` (3) |
+| Version | Precision | Recall* | F1 | ms |
+|---|---|---|---|---|
+| Two calls, one line per tell | 0.80 | 0.31 | 0.44 | 1,365 |
+| Two calls, every line per tell | not scored, flagged 25 of 47 lines in one passage | | | 1,404 |
+| One call, no lines | **0.95** | **0.47** | **0.62** | **575** |
 
-The cap is the price of the select-don't-generate design. Making the model choose from
-lines the splitter produced means it cannot fabricate a quote, and it also means it cannot
-report a second instance. On one passage arm C found 12 findings and arm B found 3, almost
-all of it the cap.
-
-Fixing it costs round trips: ask the choice again with the named line removed, or ask a
-`noul` per line per tell. Neither is free, and the second scales with passage length.
-
-### What this says about Jev
-
-Not that Jev is weak at this. That arm B asks it the wrong shape of question, and that a
-frontier model reading a 31-tell skill is very good at open-ended pattern spotting, which
-is what this task is.
-
-Jev's advantages here are real but they are speed and cost, not judgment: 1.2 seconds
-against 21, and $0.19 per 1,000 passages against an unmeasured but far larger number. Its
-precision, 0.80, is respectable. Its recall is the problem.
-
-That points at a cascade rather than a contest. Jev is cheap enough to run on every turn
-in a hook; the skill is not. Run Jev always, escalate to the skill when Jev fires or when
-the writer asks. That is the same shape as running a fast typed model first and sending
-only what it will not commit to onward, which is the pattern this repo's author had already
-landed on for a different problem.
-
-### A note on arm C's vocabulary
-
-Arm C is not consistent with itself. In one run it wrote "Binary contrast" four times and
-"Binary contrasts" thirteen, and flagged the same sentence as both a binary contrast and a
-negative listing. `bench/normalise.py` exists only to map every arm onto one vocabulary so
-the pool does not double-count. A prompt does not give you a stable enum. A typed API does.
-That is a real difference and it does not show up anywhere in the F1 table.
+The middle row is the interesting failure. Lifting the one-line cap meant asking a
+passage-level question per line wrapped in "consider only line N", and the model kept
+answering about the passage. Writing eleven separate per-line questions fixed it, and then
+the whole layer came out anyway.
 
 ## Benchmark method
 
@@ -244,8 +230,11 @@ Three arms over the same sentences.
 | Arm | What it is |
 |---|---|
 | A | Lex only. Regex, no model |
-| B | Lex + Jev |
+| B | Lex + Jev, one call |
 | C | Claude reading the whole `no-ai-slop` skill in detect mode |
+
+Scored at passage level: does this passage contain this tell. slopcheck does not claim a
+line for a semantic tell, so scoring per line would hold arm B to a claim it never makes.
 
 Labels come from **pooled adjudication**. Every arm runs, the union of what they flagged
 becomes the pool, and a human marks each pooled row true or false. The sheet does not show
@@ -258,9 +247,9 @@ the standard limitation of pooled evaluation and it is not fixable without exhau
 labelling.
 
 **Arm C is not a like-for-like comparison.** It is a prompt to a frontier model, not a
-program. It reads the full 31-tell skill on every call and thinks in text. The question it
-answers is "do the two agree on the same lines", not "which is faster". The latency and
-cost columns are in the table because they are true, not because they settle anything.
+program. It reads the full 31-tell skill on every call and thinks in text. It is also not
+eligible for the job this tool does: 21 seconds per passage cannot run after every turn.
+Read the table as "how much does the cheap always-on gate miss", not as a race.
 
 The model must not write the labels. Arm C is Claude; if Claude also wrote the ground
 truth, arm C would be scored against its own opinion and would win by construction.
@@ -280,6 +269,9 @@ python bench/score.py
 - The thresholds in `tells.yaml` are starting points. Tune them on your own text.
 - Sentence splitting is regex. It over-glues after an abbreviation that really did end a
   sentence.
+- It reports which tells a passage contains, not where. For the mechanical tells the
+  regex layer still gives you the line; for the fifteen semantic ones you get the tell
+  and its probability. See **Why it does not quote the line**.
 - `forced_triad` and `hidden_actor_passive` under-fire. Known, unfixed.
 - Name-dropping, formulaic challenges and false ranges (unslop 2, 6, 12) are not
   detected at all.

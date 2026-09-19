@@ -23,19 +23,15 @@ CFG = pathlib.Path(__file__).with_name("tells.yaml")
 def check(text, cfg, use_jev=True, key=None, timeout=20):
     t0 = time.perf_counter()
     lexed = lex.run(text, cfg)
-    probs, picked, calls, usages = {}, {}, 0, []
+    probs, calls, usages = {}, 0, []
     err = None
     if use_jev and lexed.words >= 1:
         try:
             probs, _, u1 = judge.detect(text, cfg, key, timeout)
             calls, usages = 1, [u1]
-            ids, _ = gate.fired(probs, cfg)
-            if ids:
-                picked, _, u2 = judge.locate(lexed.units, ids, cfg, key, timeout)
-                calls, usages = 2, [u1, u2]
         except judge.JevError as e:
             err = str(e)
-    findings = gate.assemble(lexed, probs, picked, cfg)
+    findings = gate.assemble(lexed, probs, cfg)
     stats = {"words": lexed.words, "units": len(lexed.units),
              "ms": (time.perf_counter() - t0) * 1000, "calls": calls,
              "cost": judge.cost_usd(*usages), "error": err}

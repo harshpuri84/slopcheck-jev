@@ -20,10 +20,7 @@ class Finding:
     unslop: object = None
     # True when call 1 fired but call 2 could not name a line. Two Jev judgments
     # disagreeing. Reported, but never as a confident finding.
-    unlocated: bool = False
-    # True when the line was pinned, but the distribution was spread enough that
-    # the pin should be read as a suggestion.
-    weak_pin: bool = False
+
 
     def dict(self):
         return asdict(self)
@@ -47,30 +44,15 @@ def fired(probs, cfg):
     return out, undecided
 
 
-def assemble(lexed, probs, picked, cfg):
+def assemble(lexed, probs, cfg):
     """Merge lex hits and Jev findings into one ordered report."""
     findings = [Finding(h.tell, h.name, "lex", h.line, h.unit, h.quote,
                         h.p, h.detail, h.fix, h.unslop) for h in lexed.hits]
-    by_n = {u.n: u for u in lexed.units}
     for tid in fired(probs, cfg)[0] if probs else []:
         t = cfg["jev"][tid]
-        n, conf = picked.get(tid, (0, 0.0))
-        u = by_n.get(n)
-        # Choice confidence is a shape statistic over the distribution, not the
-        # winning probability. A spread distribution can still have the right top
-        # pick, so keep the line and label the pin weak rather than discarding it.
-        weak = u is not None and conf < cfg["meta"].get("locate_min_confidence", 0.0)
         findings.append(Finding(
-            tid, t["name"], "jev",
-            u.line if u else 0, n,
-            u.raw if u else "(whole passage)",
-            probs[tid],
-            f"p={probs[tid]:.2f}" + (
-                (f", line pinned weakly, confidence {conf:.2f} below "
-                 f"{cfg['meta']['locate_min_confidence']}" if weak else
-                 f", line picked with confidence {conf:.2f}") if u else
-                ", call 1 fired but call 2 named no line"),
-            t["fix"], t.get("unslop"), unlocated=u is None, weak_pin=weak))
-    # Unlocated findings sort last. A reader should see the pinned ones first.
-    findings.sort(key=lambda f: (f.unlocated, f.weak_pin, f.line, -f.p))
+            tid, t["name"], "jev", 0, 0, "", probs[tid],
+            f"p={probs[tid]:.2f}, threshold {t['threshold']}",
+            t["fix"], t.get("unslop")))
+    findings.sort(key=lambda f: (f.layer == "jev", f.line, -f.p))
     return findings
