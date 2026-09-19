@@ -56,3 +56,18 @@ def assemble(lexed, probs, cfg):
             t["fix"], t.get("unslop")))
     findings.sort(key=lambda f: (f.layer == "jev", f.line, -f.p))
     return findings
+
+
+def assemble_blocks(lexed, blocks, cfg):
+    """Paragraph mode. One finding per (block, tell) that clears its threshold."""
+    findings = [Finding(h.tell, h.name, "lex", h.line, h.unit, h.quote,
+                        h.p, h.detail, h.fix, h.unslop) for h in lexed.hits]
+    for line, text, probs in blocks:
+        for tid in fired(probs, cfg)[0]:
+            t = cfg["jev"][tid]
+            findings.append(Finding(
+                tid, t["name"], "jev", line, 0, text[:110], probs[tid],
+                f"p={probs[tid]:.2f}, threshold {t['threshold']}",
+                t["fix"], t.get("unslop")))
+    findings.sort(key=lambda f: (f.line, f.layer == "jev", -f.p))
+    return findings

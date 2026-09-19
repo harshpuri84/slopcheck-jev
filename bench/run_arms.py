@@ -27,6 +27,8 @@ def run(arm):
     for p in passages:
         findings, stats = cli.check(p["text"], CFG, use_jev=(arm == "b"))
         if stats["error"]:
+            # Fail-open means a failed call looks like a clean passage with zero
+            # calls. Never let that reach a results table unlabelled.
             sys.exit(f"jev error on {p['id']}: {stats['error']}")
         out.append({
             "passage": p["id"], "provenance": p["provenance"],

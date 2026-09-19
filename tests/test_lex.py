@@ -132,3 +132,17 @@ def test_two_occurrences_on_one_line_quote_differently():
     q = [x.quote for x in lex.run(line, CFG).hits if x.tell == "abstract_metaphor"]
     assert len(q) == 2
     assert q[0] != q[1]
+
+
+def test_paragraphs_split_on_blank_lines():
+    p = lex.paragraphs("First block here with plenty of words to clear the bar.\n\n"
+                       "Second block here with plenty of words to clear the bar.", min_words=5)
+    assert len(p) == 2
+    assert p[0][0] == 1 and p[1][0] == 3
+
+
+def test_paragraphs_skip_blocks_too_short_to_judge():
+    p = lex.paragraphs("## Heading\n\nA real block with enough words in it to be worth a call.",
+                       min_words=8)
+    assert len(p) == 1
+    assert "real block" in p[0][1]

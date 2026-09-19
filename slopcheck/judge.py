@@ -12,6 +12,7 @@ batching, and two thread pools. The report names the tell and its probability.
 Jev is never asked whether a human should care. That is policy, and policy lives
 in gate.py.
 """
+import concurrent.futures as cf
 import json
 import os
 import pathlib
@@ -77,3 +78,29 @@ def detect(text, cfg, key=None, timeout=20):
 def cost_usd(*usages):
     tok = sum((u or {}).get("input_tokens") or 0 for u in usages)
     return tok * PRICE_PER_MTOK / 1e6
+
+
+def detect_blocks(blocks, cfg, key=None, timeout=20, max_workers=8):
+    """One detect call per block, all in flight at once.
+
+    Asking per paragraph gives a line number back, because the answer is about a
+    block whose position code already knows. Doing it sequentially costs a round
+    trip per paragraph; doing it concurrently costs roughly one.
+
+    `blocks` is [(line_number, text)]. Returns [(line, text, probs)].
+    """
+    if not blocks:
+        return [], 0.0, {}
+    key = api_key(key)
+    t0 = time.perf_counter()
+
+    def one(b):
+        return detect(b[1], cfg, key, timeout)
+
+    out, tok = [], 0
+    with cf.ThreadPoolExecutor(max_workers=min(max_workers, len(blocks))) as ex:
+        for (line, text), (probs, _, usage) in zip(blocks, ex.map(one, blocks)):
+            out.append((line, text, probs))
+            tok += (usage or {}).get("input_tokens") or 0
+    return out, (time.perf_counter() - t0) * 1000, {"input_tokens": tok,
+                                                    "calls": len(blocks)}

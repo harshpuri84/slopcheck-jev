@@ -194,3 +194,28 @@ def run(text, cfg):
                         f"{n} words, over {t['max_words']}", t["fix"], t.get("unslop"))
 
     return Lexed(units=units, hits=hits, words=words, masked=masked)
+
+
+def paragraphs(text, min_words=12):
+    """[(1-based line, text)] per blank-line block. Code fences stay whole.
+
+    Blocks under `min_words` are not worth a call: a heading or a one-line
+    fragment has no room for most of these tells.
+    """
+    masked = _mask(text)
+    out, buf, start = [], [], 1
+    for i, line in enumerate(masked.splitlines(), 1):
+        if line.strip():
+            if not buf:
+                start = i
+            buf.append(line.strip())
+        elif buf:
+            body = " ".join(buf)
+            if len(re.findall(r"\b[\w'-]+\b", body)) >= min_words:
+                out.append((start, body))
+            buf = []
+    if buf:
+        body = " ".join(buf)
+        if len(re.findall(r"\b[\w'-]+\b", body)) >= min_words:
+            out.append((start, body))
+    return out

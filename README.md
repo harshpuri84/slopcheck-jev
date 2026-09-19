@@ -51,7 +51,27 @@ answering, so it is suppressed rather than read as a weak yes. Change a threshol
 The model is never asked whether a human should care. That is policy, and policy lives in
 code.
 
-### Why it does not quote the line
+### Two granularities
+
+```bash
+slopcheck draft.md                    # one call about the whole document
+slopcheck draft.md --by paragraph     # one call per paragraph, all at once
+```
+
+`--by paragraph` gives a line number back, because the answer is about a block whose
+position code already knows. It costs one call per block, but the calls go out together, so
+a twelve-paragraph draft is one round trip and not twelve.
+
+| | document | paragraph |
+|---|---|---|
+| Line numbers | no | yes |
+| Median, 9 real drafts | 604 ms | 735 ms |
+| Worst | 819 ms | 1,403 ms |
+| Calls | 1 | 1 per block, concurrent |
+
+The hook uses document mode. Paragraph mode is for checking a draft you are editing.
+
+### Why the default does not quote the line
 
 The first version did. It made a second call that pinned each tell to a sentence, choosing
 from lines the splitter produced so it could not fabricate a quote.
@@ -287,6 +307,29 @@ python bench/score.py
 - It flags quoted examples. A document that discusses a tell, including this README, gets
   flagged for containing it. There is no way for the model to tell an example from a
   lapse without being told which is which.
+
+## Prior art
+
+[snifftest](https://github.com/DanRWilloughby/snifftest) by Dan Willoughby is the same
+idea, built independently and found after this one was written. It is worth reading: zero
+dependencies, a GitHub Action, and it arrived at the same 0.40 to 0.60 no-judgment band for
+the same stated reason, that the model answers about 0.5 on text it cannot read.
+
+Measured here, both on the same nine drafts with the same API key:
+
+| | snifftest | slopcheck `--by paragraph` |
+|---|---|---|
+| Judgment rules | 5 | 15 |
+| Questions asked on the corpus | 465 | 135 |
+| Flags found | 4 | 21 |
+| Median per document | 3,197 ms | **735 ms** |
+| Worst document | 7,825 ms | 1,403 ms |
+
+Its published figure, 182 ms median per paragraph, is accurate and is not the same number.
+A document costs one call per paragraph, and snifftest makes them one after another. The
+difference above is concurrency, not the model.
+
+Its five judgment rules are all among slopcheck's fifteen.
 
 ## Licence
 

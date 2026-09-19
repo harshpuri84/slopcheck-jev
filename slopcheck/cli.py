@@ -20,18 +20,25 @@ from . import gate, judge, lex, report
 CFG = pathlib.Path(__file__).with_name("tells.yaml")
 
 
-def check(text, cfg, use_jev=True, key=None, timeout=20):
+def check(text, cfg, use_jev=True, key=None, timeout=20, by="document"):
     t0 = time.perf_counter()
     lexed = lex.run(text, cfg)
     probs, calls, usages = {}, 0, []
     err = None
+    blocks = []
     if use_jev and lexed.words >= 1:
         try:
-            probs, _, u1 = judge.detect(text, cfg, key, timeout)
-            calls, usages = 1, [u1]
+            if by == "paragraph":
+                paras = lex.paragraphs(text)
+                blocks, _, u1 = judge.detect_blocks(paras, cfg, key, timeout)
+                calls, usages = u1.get("calls", len(paras)), [u1]
+            else:
+                probs, _, u1 = judge.detect(text, cfg, key, timeout)
+                calls, usages = 1, [u1]
         except judge.JevError as e:
             err = str(e)
-    findings = gate.assemble(lexed, probs, cfg)
+    findings = (gate.assemble_blocks(lexed, blocks, cfg) if by == "paragraph"
+                else gate.assemble(lexed, probs, cfg))
     stats = {"words": lexed.words, "units": len(lexed.units),
              "ms": (time.perf_counter() - t0) * 1000, "calls": calls,
              "cost": judge.cost_usd(*usages), "error": err}
@@ -43,6 +50,9 @@ def main(argv=None):
     ap.add_argument("path", help="file to check, or - for stdin")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--no-jev", action="store_true", help="regex only, no network")
+    ap.add_argument("--by", choices=["document", "paragraph"], default="document",
+                    help="paragraph asks per block and gives a line number back, "
+                         "at one call per block run concurrently")
     ap.add_argument("--no-color", action="store_true")
     ap.add_argument("--min-words", type=int, default=0)
     ap.add_argument("--timeout", type=float, default=20)
@@ -54,7 +64,8 @@ def main(argv=None):
     cfg = yaml.safe_load(CFG.read_text())
     if a.min_words and len(text.split()) < a.min_words:
         return 0
-    findings, stats = check(text, cfg, use_jev=not a.no_jev, timeout=a.timeout)
+    findings, stats = check(text, cfg, use_jev=not a.no_jev, timeout=a.timeout,
+                            by=a.by)
     if a.json:
         print(report.as_json(findings, stats))
     else:
