@@ -27,9 +27,10 @@ def api_key(explicit=None):
         return explicit
     if os.environ.get("TYPESAFE_API_KEY"):
         return os.environ["TYPESAFE_API_KEY"]
-    for p in (pathlib.Path.cwd() / ".env",
-              pathlib.Path(__file__).resolve().parent.parent / ".env",
-              pathlib.Path.home() / "Documents/Harsh OS/Lab/typesafe-jev/.env"):
+    extra = os.environ.get("SLOPCHECK_ENV")
+    for p in ([pathlib.Path(extra)] if extra else []) + [
+            pathlib.Path.cwd() / ".env",
+            pathlib.Path(__file__).resolve().parent.parent / ".env"]:
         if p.exists():
             for line in p.read_text().splitlines():
                 if line.startswith("TYPESAFE_API_KEY="):

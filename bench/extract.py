@@ -14,21 +14,10 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import yaml
 from slopcheck import lex
 
-VAULT = pathlib.Path.home() / "Documents/Harsh OS/05-Areas/Career/LinkedIn Engine/drafts"
 OUT = pathlib.Path(__file__).parent / "local"
-
-# provenance: draft = Claude wrote it, no hook pass. published = Harsh's own text.
-SOURCES = [
-    ("jev-copy",     "typesafe-jev/POST-COPY.md",                          "draft",     "section:Carousel copy"),
-    ("stripe-copy",  "stripe-openrouter/POST-COPY.md",                     "draft",     "section:Recommended"),
-    ("86-v1",        "2026-08-24 - The 86 fields I refused to grade.md",   "draft",     "quote"),
-    ("86-t2",        "2026-08-25 - The 86 fields I refused to grade (T2).md", "draft",  "quote"),
-    ("86-recipe",    "2026-08-25 - The 4-step field audit (recipe).md",    "draft",     "quote"),
-    ("86-v4",        "2026-08-25 - The field audit with tool (v4).md",     "draft",     "quote"),
-    ("jev-final",    "typesafe-jev/POST-FINAL.txt",                        "published", "all"),
-    ("jev-post2",    "typesafe-jev/POST-2.txt",                            "published", "all"),
-    ("jev-post3",    "typesafe-jev/POST-3.txt",                            "published", "all"),
-]
+# Your corpus map. Gitignored, because the file names alone say what you write
+# about. Copy sources.example.json to bench/local/sources.json and edit it.
+MAP = OUT / "sources.json"
 
 
 def carve(text, rule):
@@ -53,14 +42,23 @@ def carve(text, rule):
     raise ValueError(rule)
 
 
+def load_sources():
+    if not MAP.exists():
+        sys.exit(f"no {MAP}. Copy bench/sources.example.json there and edit it.")
+    m = json.loads(MAP.read_text())
+    return pathlib.Path(m["root"]).expanduser(), m["sources"]
+
+
 def main():
     OUT.mkdir(exist_ok=True)
+    VAULT, SOURCES = load_sources()
     cfg = yaml.safe_load((pathlib.Path(__file__).parent.parent
                           / "slopcheck/slopcheck/tells.yaml").read_text()
                          if False else
                          (pathlib.Path(__file__).parent.parent / "slopcheck/tells.yaml").read_text())
     passages, rows, sid = [], [], 0
-    for pid, rel, prov, rule in SOURCES:
+    for s_ in SOURCES:
+        pid, rel, prov, rule = s_["id"], s_["path"], s_["provenance"], s_["carve"]
         p = VAULT / rel
         if not p.exists():
             print(f"MISSING {p}", file=sys.stderr)

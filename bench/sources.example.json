@@ -1,0 +1,18 @@
+{
+  "_note": "Copy to bench/local/sources.json and edit. That path is gitignored.",
+  "root": "~/path/to/your/drafts",
+  "sources": [
+    {"id": "draft-01", "path": "some-post/DRAFT.md",  "provenance": "draft",     "carve": "section:Post copy"},
+    {"id": "draft-02", "path": "another-post.md",     "provenance": "draft",     "carve": "quote"},
+    {"id": "pub-01",   "path": "some-post/FINAL.txt", "provenance": "published", "carve": "all"}
+  ],
+  "_carve": {
+    "all": "the whole file is the post",
+    "quote": "the post is the blockquoted (> ) lines",
+    "section:NAME": "the post is under the '## NAME' heading, up to the next ---"
+  },
+  "_provenance": {
+    "draft": "the model wrote it and a human has not edited it",
+    "published": "a human edited it and shipped it"
+  }
+}
