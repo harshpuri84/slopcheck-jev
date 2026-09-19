@@ -89,17 +89,17 @@ each would add a question to call 1 for every passage, so they are left out on p
 | # | unslop tell | slopcheck | layer |
 |---|---|---|---|
 | 1 | Puffery | `importance_puffery` | jev |
-| 2 | Name-dropping | not covered | — |
+| 2 | Name-dropping | not covered | n/a |
 | 3 | Superficial -ing phrases | `superficial_ing` | jev |
 | 4 | Promotional language | `promotional` | lex |
 | 5 | Vague attributions | `weasel_attribution` | jev |
-| 6 | Formulaic challenges | not covered | — |
+| 6 | Formulaic challenges | not covered | n/a |
 | 7 | AI vocabulary | `banned_word` | lex |
 | 8 | Fancy ways to say "is" | `fake_strong_verb` | jev |
 | 9 | "Not just X, but Y." | `binary_contrast` | jev |
 | 10 | Rule of three | `forced_triad` | jev |
 | 11 | Synonym cycling | `synonym_cycling` | jev |
-| 12 | False ranges | not covered | — |
+| 12 | False ranges | not covered | n/a |
 | 13 | Em dash overuse | `em_dash`, `en_dash_sub` | lex |
 | 14 | Colon overuse | `colon_reveal` | jev |
 | 15 | Boldface overuse | `bold_density` | lex |
@@ -156,18 +156,65 @@ corpus below, so the benchmark labels stay uncontaminated.
 
 ### Real drafts, 9 passages, 221 sentences
 
-A private set of LinkedIn drafts, so it is not in this repo.
+A private set of LinkedIn drafts, so the text is not in this repo. The author adjudicated
+all 59 pooled rows: 52 confirmed tells, 7 false positives.
 
-**The regex layer found nothing. Zero findings across all nine passages.** Those drafts had
+| Arm | TP | FP | FN | Precision | Recall* | F1 | ms/passage | $/1,000 |
+|---|---|---|---|---|---|---|---|---|
+| A, regex only | 1 | 2 | 51 | 0.33 | 0.02 | 0.04 | 6 | $0 |
+| B, regex + Jev | 16 | 4 | 36 | 0.80 | 0.31 | 0.44 | 1,161 | $0.19 |
+| C, Claude + no-ai-slop | 43 | 3 | 9 | 0.93 | 0.83 | **0.88** | 21,387 | not measurable |
+
+`*` recall against the pool. n = 59 rows, 52 positives.
+
+**Arm C wins on quality and it is not close.** Twice the F1. It is also 18 times slower.
+
+The regex layer found almost nothing, as it did on the synthetic set: these drafts had
 already been through an `unslop` pass, so no em dash, banned word or curly quote survived.
-On text that has already been cleaned mechanically, every remaining tell is semantic. That
-is the case for a model doing this job rather than a word list.
+One of its three findings was correct.
 
-**Jev found 20.** Fifteen in unedited drafts, five in published text the author had already
-hand-edited. Those five are candidate false positives, which is what adjudication is for.
+### Why arm B missed 36
 
-Two of the true positives were lines the author had independently cut from the published
-version: "The part worth reading is not the launch post" and "You can grade a Choice".
+Worth separating, because a third of the gap is this repo's architecture rather than the
+model's judgment.
+
+| Cause | Count | What it is |
+|---|---|---|
+| The one-line cap | 12 | Call 2 asks a `choice` per tell, so it names exactly one line. A passage with three binary contrasts can only ever report one |
+| No such tell | 7 | `dramatic_fragmentation`, `robotic_rhythm` and `negative_listing` are in `no-ai-slop` and not here |
+| Genuine miss | 17 | The passage-level noul did not fire. Mostly `faux_insight` (5) and `fake_profound_kicker` (3) |
+
+The cap is the price of the select-don't-generate design. Making the model choose from
+lines the splitter produced means it cannot fabricate a quote, and it also means it cannot
+report a second instance. On one passage arm C found 12 findings and arm B found 3, almost
+all of it the cap.
+
+Fixing it costs round trips: ask the choice again with the named line removed, or ask a
+`noul` per line per tell. Neither is free, and the second scales with passage length.
+
+### What this says about Jev
+
+Not that Jev is weak at this. That arm B asks it the wrong shape of question, and that a
+frontier model reading a 31-tell skill is very good at open-ended pattern spotting, which
+is what this task is.
+
+Jev's advantages here are real but they are speed and cost, not judgment: 1.2 seconds
+against 21, and $0.19 per 1,000 passages against an unmeasured but far larger number. Its
+precision, 0.80, is respectable. Its recall is the problem.
+
+That points at a cascade rather than a contest. Jev is cheap enough to run on every turn
+in a hook; the skill is not. Run Jev always, escalate to the skill when Jev fires or when
+the writer asks. That is the same shape as running a fast typed model first and sending
+only what it will not commit to onward, which is the pattern this repo's author had already
+landed on for a different problem.
+
+### A note on arm C's vocabulary
+
+Arm C is not consistent with itself. In one run it wrote "Binary contrast" four times and
+"Binary contrasts" thirteen, and flagged the same sentence as both a binary contrast and a
+negative listing. `bench/normalise.py` exists only to map every arm onto one vocabulary so
+the pool does not double-count. A prompt does not give you a stable enum. A typed API does.
+That is a real difference and it does not show up anywhere in the F1 table.
 
 ## Benchmark method
 
@@ -220,6 +267,10 @@ python bench/score.py
 - A pin below `locate_min_confidence` is reported with the line but labelled weak. Choice
   confidence measures how spread the distribution is, not whether the top pick is right, so
   a weak pin is often still the correct line.
+- **It measures presence, not severity.** A tell the writer would happily publish scores
+  the same as one they would cut. Adjudicating a real corpus, the author marked nine
+  binary contrasts as genuinely present and in the same breath called them "passable for
+  posting". A useful tool would rank by how much the line costs, and this one cannot.
 - It flags quoted examples. A document that discusses a tell, including this README, gets
   flagged for containing it. There is no way for the model to tell an example from a
   lapse without being told which is which.
