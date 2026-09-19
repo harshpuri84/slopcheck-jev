@@ -130,20 +130,29 @@ without them.
 `bench/corpus/`. Written for this repo with tells planted deliberately, so the labels are
 known by construction. This tests the plumbing, not human judgment.
 
-Found 13 of 16 planted tells. The three misses:
+Found 16 of 16 planted tells, plus 8 flags for tells that were not planted.
 
-| Tell | p | Threshold | What happened |
+The first pass found 13 of 16. Three questions were rewritten to fix it, and the numbers
+moved a long way:
+
+| Tell | p before | p after | What was wrong with the question |
 |---|---|---|---|
-| `summary_recap_ending` | 0.440 | 0.70 | Undecided band. The model declined to answer |
-| `hidden_actor_passive` | 0.490 | 0.70 | Undecided band. Declined |
-| `forced_triad` | 0.210 | 0.70 | A flat no. The model disagreed that the triad was padded |
+| `summary_recap_ending` | 0.40 | 0.96 | It asked whether the closing "adds anything new". A closing can summarise and still state a claim |
+| `forced_triad` | 0.22 | 0.86 | It asked whether the third item was "padding". It now asks whether the three items are peers |
+| `hidden_actor_passive` | 0.51 | 0.90 | It did not say what a passive is, so an impersonal subject read as one |
 
-Two of the three are the band doing its job: saying "I do not know" instead of guessing.
-`forced_triad` is a genuine weakness and the question wording needs work.
+`hidden_actor_passive` then fired on all three clean fixtures, so the question names the
+active cases explicitly and its threshold is 0.80 rather than 0.70. It is the noisiest
+tell here.
 
-One flagged line in a fixture labelled clean turned out to be a real binary contrast
-("Panel count is not the metric. Time from page to first useful graph is"). The label was
+The 8 extra flags are mostly real. The dirty fixtures carry more tells than were planted:
+"In conclusion, retries are a design decision, not an accident" is both a summary-recap
+ending and a binary contrast. One flag on a fixture labelled clean was also correct
+("Panel count is not the metric. Time from page to first useful graph is"). That label was
 wrong, not the detector.
+
+These questions were tuned against these six fixtures only, never against the private
+corpus below, so the benchmark labels stay uncontaminated.
 
 ### Real drafts, 9 passages, 221 sentences
 
@@ -154,8 +163,8 @@ already been through an `unslop` pass, so no em dash, banned word or curly quote
 On text that has already been cleaned mechanically, every remaining tell is semantic. That
 is the case for a model doing this job rather than a word list.
 
-**Jev found 17.** Thirteen in unedited drafts, four in published text the author had already
-hand-edited. Those four are candidate false positives, which is what adjudication is for.
+**Jev found 20.** Fifteen in unedited drafts, five in published text the author had already
+hand-edited. Those five are candidate false positives, which is what adjudication is for.
 
 Two of the true positives were lines the author had independently cut from the published
 version: "The part worth reading is not the launch post" and "You can grade a Choice".

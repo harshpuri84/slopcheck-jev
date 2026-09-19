@@ -249,12 +249,19 @@ jev:
     unslop: 25
     threshold: 0.70
     instructions: >
-      The passage ends with a paragraph that restates what the reader has just read,
-      rather than adding a new fact, takeaway or next action. Markers include "in
-      conclusion", "ultimately", "overall", "to sum up".
+      The passage closes by summing itself up instead of ending on its last concrete
+      point. A closing that opens with "in conclusion", "ultimately", "overall", "to sum
+      up", "at the end of the day" or "all in all" is this pattern, because the reader
+      has just read the passage and does not need it restated. It is still this pattern
+      when the summarising sentence also states an opinion.
     criteria:
-      true: The closing restates earlier content without adding anything new.
-      false: The closing adds a new fact, a next action, or a concrete takeaway.
+      true: >
+        The closing summarises, generalises or moralises about what came before, with or
+        without a summary marker word. Example: "In conclusion, retries are a design
+        decision, not an accident."
+      false: >
+        The passage ends on a specific fact, a number, a next action, or an instruction,
+        with no summarising move.
     locate: Which numbered line begins the closing restatement?
     fix: Cut it. End on the last concrete point.
 
@@ -367,13 +374,18 @@ jev:
     unslop: 10
     threshold: 0.70
     instructions: >
-      Items are grouped into threes for rhythm rather than because there are three of them.
-      The third item is vaguer than the first two, or repeats one of them.
+      The passage contains a list of exactly three items where the three are not peers.
+      Test each list of three: is one item vaguer than the others, is one a consequence
+      of the other two rather than a sibling of them, or does one repeat another in
+      different words? Any of those means the list was padded to three for rhythm.
     criteria:
-      true: A list of three exists where the third item is padding or a near-repeat.
+      true: >
+        A three-item list exists and at least one item is vaguer than its neighbours, is
+        an outcome rather than a peer, or restates another item. Example: "fewer panels,
+        clearer names, and better outcomes" pads with an outcome.
       false: >
-        Lists use their natural length. A list of three whose items are all distinct
-        and load-bearing is not this pattern.
+        Every three-item list has three concrete, distinct, same-kind items, or the
+        passage contains no list of three.
     locate: Which numbered line pads a list to three?
     fix: Use the natural number.
 
@@ -399,15 +411,23 @@ jev:
   hidden_actor_passive:
     name: passive with hidden actor
     unslop: 29
-    threshold: 0.70
+    # Higher than the others. This one is inherently noisy: an impersonal subject
+    # reads as passive to the model even when the sentence is active.
+    threshold: 0.80
     instructions: >
-      A sentence uses a passive construction where the actor is known and naming it would
-      be clearer. For example "queries are validated" where the compiler does the
-      validating, or "the decision was made".
+      A sentence is built as a form of "be" plus a past participle, with the actor left
+      out, and the writer plainly knows who the actor is. Only an actual passive
+      construction counts. A sentence whose subject performs the verb is active, however
+      impersonal its subject sounds.
     criteria:
-      true: A passive sentence hides an actor the writer knows.
+      true: >
+        The passage contains a be-plus-participle sentence with no "by" phrase, where the
+        writer could name the actor. Examples: "the rewrite was completed last quarter",
+        "queries are validated", "the decision was made".
       false: >
-        Sentences name their actor, or the actor is genuinely unknown or irrelevant.
+        There is no such sentence. Sentences with a non-human subject that still performs
+        its own verb are active, not passive: "the solver reports them", "the queue drains
+        by hand", "retries stop after four attempts", "panel count is not the metric".
     locate: Which numbered line hides a known actor behind a passive verb?
     fix: Name the actor and make it the subject.
 
