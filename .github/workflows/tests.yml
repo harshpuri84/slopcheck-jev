@@ -1,0 +1,29 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lex:
+    # The lex layer needs no network and no API key, so CI can run it on every
+    # push. The Jev layer is not tested here on purpose: a test that needs a
+    # paid API call is a test that gets skipped.
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.9", "3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e . pytest
+      - run: pytest tests/ -q
+      - name: CLI runs with no key and no network
+        run: slopcheck bench/corpus/dirty-01.md --no-jev --no-color
+      - name: hook exits 0 on garbage input
+        run: |
+          echo 'not json' | ./hooks/stop-hook.sh
+          echo "exit=$?"
+          test $? -eq 0

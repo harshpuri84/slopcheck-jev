@@ -68,3 +68,52 @@ def test_quote_restores_code_stripped_for_matching():
     u = lex.run("Run `npm run build` and then check the output.", CFG).units[0]
     assert "`npm run build`" in u.raw      # the human sees the code
     assert "npm" not in u.text             # Jev does not
+
+
+def test_chatbot_phrase_caught():
+    assert "chatbot_phrase" in tells("Done. I hope this helps with the rollout plan.")
+
+
+def test_sycophancy_caught_once_not_twice():
+    t = [h.tell for h in lex.run("Great question! Here is the answer you wanted.", CFG).hits]
+    assert t.count("sycophancy") == 1
+    assert "chatbot_phrase" not in t
+
+
+def test_every_occurrence_of_a_phrase_is_reported():
+    hits = [h for h in lex.run(
+        "In order to ship, we refactored in order to cut the build time.", CFG).hits
+        if h.tell == "filler_phrase"]
+    assert len(hits) == 2
+
+
+def test_stacked_hedging_caught():
+    assert "hedge_stack" in tells(
+        "It could potentially possibly be argued that the change helped.")
+
+
+def test_single_hedge_allowed():
+    assert "hedge_stack" not in tells("This might be the cause of the regression.")
+
+
+def test_boldface_density_is_document_level():
+    dense = "**one** **two** **three** " + "word " * 20
+    assert "bold_density" in tells(dense)
+    assert "bold_density" not in tells("**one** " + "word " * 60)
+
+
+def test_long_sentence_caught():
+    long = " ".join(["word"] * 45) + "."
+    assert "long_sentence" in tells(long)
+    assert "long_sentence" not in tells(" ".join(["word"] * 20) + ".")
+
+
+def test_promotional_and_metaphor_cite_their_own_rule():
+    by = {h.tell: h.unslop for h in lex.run(
+        "The seamless flywheel is a world-class primitive here.", CFG).hits}
+    assert by.get("promotional") == 4
+    assert by.get("abstract_metaphor") == 26
+
+
+def test_empty_adverb_caught():
+    assert "empty_adverb" in tells("The change significantly improved the throughput.")

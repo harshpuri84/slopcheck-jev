@@ -16,30 +16,35 @@ meta:
 
 lex:
   em_dash:
+    kind: pattern
     name: em dash
     unslop: 13
     pattern: '—'
     max: 0
     fix: End the sentence or use a comma.
   en_dash_sub:
+    kind: pattern
     name: en dash used as a dash
     unslop: 13
     pattern: ' – '
     max: 0
     fix: End the sentence or use a comma.
   curly_quote:
+    kind: pattern
     name: curly quote
     unslop: 19
     pattern: '[‘’“”]'
     max: 0
     fix: Use straight quotes.
   decorative_emoji:
+    kind: pattern
     name: decorative emoji
     unslop: 18
     pattern: '[\U0001F300-\U0001FAFF✀-➿☀-⛿]'
     max: 0
     fix: Remove it.
   inline_header_list:
+    kind: pattern
     name: inline-header list
     unslop: 16
     # Bold label + colon that restates the line. A bold lead-in ending in a
@@ -48,13 +53,15 @@ lex:
     max: 0
     fix: Convert to prose, or end the bold lead-in with a period and add new detail.
   title_case_heading:
+    kind: pattern
     name: title case heading
     unslop: 17
     pattern: '^#{1,6}\s+(?:[A-Z][a-z]*\s+){2,}[A-Z][a-z]*\s*$'
     max: 0
     fix: Sentence case.
   banned_word:
-    name: banned word
+    kind: words
+    name: AI vocabulary
     unslop: 7
     fix: Use the plain word.
     # Union of unslop 7/26/31 and no-ai-slop "banned outright". Word-boundary matched.
@@ -98,18 +105,110 @@ lex:
       - showcasing
       - garner
       - interplay
-      - vibrant
-      - groundbreaking
-      - nestled
-      - breathtaking
-      - must-visit
-      - substrate
-      - flywheel
-      - north star
-      - gold-plating
-      - bedrock
-      - nexus
-      - modality
+
+  promotional:
+    kind: words
+    name: promotional language
+    unslop: 4
+    fix: Use a neutral description.
+    words: [nestled, vibrant, breathtaking, groundbreaking, renowned, stunning,
+            must-visit, iconic, world-class, unparalleled, seamless, effortless,
+            best-in-class, industry-leading, state-of-the-art, bustling, picturesque,
+            hidden gem, game-changing]
+
+  empty_adverb:
+    kind: words
+    name: often-empty adverb
+    unslop: 30
+    fix: Cut it, or use the number or a stronger verb.
+    # no-ai-slop's "often-empty adverbs" list. These are flagged, not banned:
+    # they are fine when they carry emphasis, contrast or spoken rhythm.
+    words: [significantly, dramatically, incredibly, extremely, highly, deeply,
+            truly, literally, fundamentally, inherently, inevitably, crucially,
+            importantly, vastly, remarkably, notably, considerably, substantially]
+
+  abstract_metaphor:
+    kind: words
+    name: abstract metaphor noun
+    unslop: 26
+    fix: Pick the concrete word. "substrate" is "base", "wedge" is "add", "vector" is "way".
+    words: [substrate, wedge, locus, vantage, nexus, bedrock, scaffolding, modality,
+            paradigm, gold-plating, ratchet, endgame, north star, flywheel, primitive,
+            surface area, api surface, lever, levers, moat, moats, unlock,
+            unlocks, step-change, wedges, primitives]
+
+  plain_word:
+    kind: words
+    name: fancier word than needed
+    unslop: 31
+    fix: Use the plain word.
+    words: [numerous, myriad, plethora, commence, endeavour, endeavor, ascertain,
+            subsequently, prior to, aforementioned, heretofore, furthermore, moreover,
+            nevertheless, notwithstanding, henceforth, whilst, amongst, additionally]
+
+  chatbot_phrase:
+    kind: phrases
+    name: chatbot phrase
+    unslop: 20
+    fix: Remove it.
+    phrases: ["i hope this helps", "let me know if", "feel free to", "happy to help",
+              "of course!", "certainly!", "absolutely!",
+              "i'd be happy to", "hope that helps", "let me know how", "does that help"]
+
+  sycophancy:
+    kind: phrases
+    name: sycophantic opener
+    unslop: 22
+    fix: Respond directly.
+    phrases: ["great question", "you're absolutely right", "you are absolutely right",
+              "that's a great point", "excellent point", "you're right to", "good catch",
+              "what a great", "i love this question"]
+
+  cutoff_disclaimer:
+    kind: phrases
+    name: cutoff disclaimer
+    unslop: 21
+    fix: Find the source, or cut the claim.
+    phrases: ["while specific details are limited", "as of my last update",
+              "my training data", "i don't have access to real-time",
+              "details are scarce", "information is limited", "publicly available information"]
+
+  filler_phrase:
+    kind: phrases
+    name: filler phrase
+    unslop: 23
+    fix: Delete it, or use the short form.
+    phrases: ["in order to", "due to the fact that", "it is important to note",
+              "it's important to note", "it is worth noting", "it's worth noting",
+              "at the end of the day", "when it comes to", "at its core",
+              "in today's world", "in the age of", "the reality is", "the truth is",
+              "in terms of", "with regard to", "going forward", "in this article",
+              "let's dive in", "needless to say", "for all intents and purposes"]
+
+  hedge_stack:
+    kind: pattern
+    name: stacked hedging
+    unslop: 24
+    # Two hedges inside six words. One hedge is fine; three in a row is not.
+    pattern: '(?i)\b(?:could|might|may|possibly|potentially|perhaps|arguably|somewhat|fairly|rather|seemingly|appears? to|tends? to|relatively)\b(?:\W+\w+){0,4}\W+\b(?:could|might|may|possibly|potentially|perhaps|arguably|somewhat|fairly|rather|seemingly|be argued|tends? to|relatively)\b'
+    max: 0
+    fix: Keep one hedge, or state the claim.
+
+  bold_density:
+    kind: density
+    name: boldface overuse
+    unslop: 15
+    pattern: '\*\*[^*\n]{1,80}\*\*'
+    # More than one bold run per 40 words reads as decoration, not emphasis.
+    per_words: 40
+    fix: Bold the few things a skimmer must not miss. Unbold the rest.
+
+  long_sentence:
+    kind: length
+    name: dense sentence
+    unslop: 28
+    max_words: 38
+    fix: Split it. One idea per sentence.
 
 # Fifteen judgments. Each becomes one noul in call 1, and one choice in call 2
 # if it fires. instructions/criteria go to the model verbatim; the id does not.

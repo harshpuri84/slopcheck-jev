@@ -29,14 +29,16 @@ Three layers. Code finds, the model judges, code decides.
 
 | Layer | Owns | Cost | Latency |
 |---|---|---|---|
-| Lex, regex | 7 mechanical tells and a 51-word banned list | $0 | ~3 ms |
+| Lex, regex | 18 tells: patterns, word lists, phrase lists, density, length | $0 | ~6 ms |
 | Judge, [Jev](https://typesafe.ai) | 15 tells that need reading | $0.18 / 1,000 passages | 620 ms clean, 1,250 ms dirty |
 | Gate, code | Every threshold | $0 | 0 ms |
 
 Jev is a System One model. It returns typed answers and probabilities instead of text.
 
-**Lex** handles em dashes, curly quotes, title-case headings, decorative emoji, boldface
-density, inline-header lists and banned words. String matching, so it is exact and free.
+**Lex** handles anything a regex can settle: em dashes, curly quotes, title-case headings,
+decorative emoji, inline-header lists, boldface density, sentence length, stacked hedging,
+and six word or phrase lists (AI vocabulary, promotional language, abstract metaphor nouns,
+filler phrases, chatbot phrases, sycophantic openers, often-empty adverbs). Exact and free.
 Jev never sees these.
 
 **Judge** makes two calls, and the second usually does not run:
@@ -78,6 +80,45 @@ Fifteen semantic tells and seven mechanical ones, taken from two skills:
 They live in `slopcheck/tells.yaml`: the question text, the criteria the model answers
 against, the threshold, and the fix. That file is the whole domain. Swap it to detect
 something else.
+
+### Coverage against unslop's 31
+
+28 of 31. The three gaps need judgment about the world rather than about the sentence, and
+each would add a question to call 1 for every passage, so they are left out on purpose.
+
+| # | unslop tell | slopcheck | layer |
+|---|---|---|---|
+| 1 | Puffery | `importance_puffery` | jev |
+| 2 | Name-dropping | not covered | — |
+| 3 | Superficial -ing phrases | `superficial_ing` | jev |
+| 4 | Promotional language | `promotional` | lex |
+| 5 | Vague attributions | `weasel_attribution` | jev |
+| 6 | Formulaic challenges | not covered | — |
+| 7 | AI vocabulary | `banned_word` | lex |
+| 8 | Fancy ways to say "is" | `fake_strong_verb` | jev |
+| 9 | "Not just X, but Y." | `binary_contrast` | jev |
+| 10 | Rule of three | `forced_triad` | jev |
+| 11 | Synonym cycling | `synonym_cycling` | jev |
+| 12 | False ranges | not covered | — |
+| 13 | Em dash overuse | `em_dash`, `en_dash_sub` | lex |
+| 14 | Colon overuse | `colon_reveal` | jev |
+| 15 | Boldface overuse | `bold_density` | lex |
+| 16 | Inline-header lists | `inline_header_list` | lex |
+| 17 | Title case headings | `title_case_heading` | lex |
+| 18 | Decorative emojis | `decorative_emoji` | lex |
+| 19 | Curly quotes | `curly_quote` | lex |
+| 20 | Chatbot phrases | `chatbot_phrase` | lex |
+| 21 | Cutoff disclaimers | `cutoff_disclaimer` | lex |
+| 22 | Sycophantic tone | `sycophancy` | lex |
+| 23 | Filler phrases | `filler_phrase`, `throat_clearing` | lex |
+| 24 | Excessive hedging | `hedge_stack` | lex |
+| 25 | Generic conclusions | `summary_recap_ending` | jev |
+| 26 | Abstract metaphor nouns | `abstract_metaphor` | lex |
+| 27 | Say what it does, not how it feels | `feeling_not_mechanism` | jev |
+| 28 | Shorten or split dense sentences | `long_sentence` | lex |
+| 29 | Active voice | `hidden_actor_passive` | jev |
+| 30 | Cut adverbs, or use a stronger verb | `empty_adverb` | lex |
+| 31 | Prefer the plain word | `plain_word` | lex |
 
 ## Measurements
 
@@ -163,6 +204,8 @@ python bench/score.py
 - Sentence splitting is regex. It over-glues after an abbreviation that really did end a
   sentence.
 - `forced_triad` and `hidden_actor_passive` under-fire. Known, unfixed.
+- Name-dropping, formulaic challenges and false ranges (unslop 2, 6, 12) are not
+  detected at all.
 - Two Jev judgments can disagree: call 1 fires and call 2 names no line. Those are reported
   at passage level and sorted last, never as a confident finding.
 - A pin below `locate_min_confidence` is reported with the line but labelled weak. Choice

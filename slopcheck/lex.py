@@ -120,33 +120,64 @@ def _unit_at(units, lineno):
 
 
 def run(text, cfg):
-    """Split, then apply every lex tell. Returns units, hits and a prose word count."""
+    """Split, then apply every lex tell. Returns units, hits and a prose word count.
+
+    Tells dispatch on `kind`:
+      pattern  per-line regex
+      words    per-line, word-boundary matched
+      phrases  per-line substring, case-insensitive
+      density  document-level rate, matches per N words
+      length   per-unit word count
+    """
     masked = _mask(text)
     units = split(masked, text)
     lex, hits = cfg["lex"], []
+    src = text.splitlines()
+    words = len(re.findall(r"\b[\w'-]+\b", masked))
+
+    def add(tid, name, unit, line, quote, detail, fix, unslop):
+        hits.append(LexHit(tid, name, unit, line, quote, detail, fix, unslop=unslop))
 
     for lineno, raw in enumerate(masked.splitlines(), 1):
         if not raw.strip():
             continue
         u = _unit_at(units, lineno)
-        src_line = text.splitlines()[lineno - 1].strip()
+        src_line = src[lineno - 1].strip() if lineno <= len(src) else raw.strip()
         un, uq = (u.n, u.raw or src_line) if u else (0, src_line)
+        low = raw.lower()
 
         for tid, t in lex.items():
-            if tid == "banned_word":
-                continue
-            for m in re.finditer(t["pattern"], raw, re.M):
-                hits.append(LexHit(tid, t["name"], un, lineno, uq,
-                                   f"matched {m.group(0)!r}", t["fix"],
-                                   unslop=t.get("unslop")))
+            kind = t.get("kind", "pattern")
+            if kind == "pattern":
+                for m in re.finditer(t["pattern"], raw, re.M):
+                    add(tid, t["name"], un, lineno, uq,
+                        f"matched {m.group(0)[:40]!r}", t["fix"], t.get("unslop"))
+            elif kind == "words":
+                for w in t["words"]:
+                    for m in re.finditer(rf"(?<![\w-]){re.escape(w)}(?![\w-])", low):
+                        add(tid, f"{t['name']}: {w}", un, lineno, uq,
+                            f"{w!r} at column {m.start() + 1}", t["fix"], t.get("unslop"))
+            elif kind == "phrases":
+                for ph in t["phrases"]:
+                    i = low.find(ph)
+                    while i >= 0:
+                        add(tid, f"{t['name']}: {ph!r}", un, lineno, uq,
+                            f"at column {i + 1}", t["fix"], t.get("unslop"))
+                        i = low.find(ph, i + len(ph))
 
-        bw = lex["banned_word"]
-        low = raw.lower()
-        for w in bw["words"]:
-            for m in re.finditer(rf"(?<![\w-]){re.escape(w)}(?![\w-])", low):
-                hits.append(LexHit("banned_word", f"banned word: {w}", un, lineno, uq,
-                                   f"{w!r} at column {m.start() + 1}", bw["fix"],
-                                   unslop=bw.get("unslop")))
+    for tid, t in lex.items():
+        if t.get("kind") == "density" and words:
+            n = len(re.findall(t["pattern"], masked))
+            allowed = max(1, words // t["per_words"])
+            if n > allowed:
+                add(tid, t["name"], 0, 0, "",
+                    f"{n} bold runs in {words} words, {allowed} is the ceiling at "
+                    f"1 per {t['per_words']}", t["fix"], t.get("unslop"))
+        elif t.get("kind") == "length":
+            for un_ in units:
+                n = len(re.findall(r"\b[\w'-]+\b", un_.text))
+                if n > t["max_words"]:
+                    add(tid, t["name"], un_.n, un_.line, un_.raw,
+                        f"{n} words, over {t['max_words']}", t["fix"], t.get("unslop"))
 
-    words = len(re.findall(r"\b[\w'-]+\b", masked))
     return Lexed(units=units, hits=hits, words=words, masked=masked)

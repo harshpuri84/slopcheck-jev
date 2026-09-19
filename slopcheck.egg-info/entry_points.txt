@@ -1,0 +1,2 @@
+[console_scripts]
+slopcheck = slopcheck.cli:main
