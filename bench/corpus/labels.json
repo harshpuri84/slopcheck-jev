@@ -1,0 +1,9 @@
+{
+  "note": "Fixtures written for this repo. Labels are known by construction, so these test the plumbing, not human judgment. The real benchmark uses pooled adjudication by a human. See README.",
+  "dirty-01.md": ["importance_puffery", "binary_contrast", "weasel_attribution", "feeling_not_mechanism", "fake_profound_kicker"],
+  "dirty-02.md": ["throat_clearing", "faux_insight", "colon_reveal", "fake_strong_verb", "superficial_ing", "rhetorical_setup", "summary_recap_ending"],
+  "dirty-03.md": ["weasel_attribution", "importance_puffery", "forced_triad", "hidden_actor_passive"],
+  "clean-01.md": [],
+  "clean-02.md": [],
+  "clean-03.md": []
+}

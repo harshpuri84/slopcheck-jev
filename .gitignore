@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+# Never ship: this holds text extracted from a private vault.
+bench/local/

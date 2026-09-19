@@ -1,0 +1,343 @@
+# Every tell slopcheck knows. Swap this file to change the domain.
+#
+# layer: lex  -> regex, free, exact. Jev never sees it.
+# layer: jev  -> needs reading. One noul per tell in call 1.
+#
+# Sources: ~/.claude/skills/unslop/SKILL.md (31 numbered tells)
+#          ~/.claude/skills/no-ai-slop/SKILL.md (patterns to cut)
+
+meta:
+  model: jev-latest
+  url: https://api.typesafe.ai/v1/systemone
+  # A noul inside this band means the model is not answering. Suppress it.
+  undecided_band: [0.40, 0.60]
+  # Call 2 only runs for tells at or above their report threshold in call 1.
+  locate_min_confidence: 0.55
+
+lex:
+  em_dash:
+    name: em dash
+    unslop: 13
+    pattern: '—'
+    max: 0
+    fix: End the sentence or use a comma.
+  en_dash_sub:
+    name: en dash used as a dash
+    unslop: 13
+    pattern: ' – '
+    max: 0
+    fix: End the sentence or use a comma.
+  curly_quote:
+    name: curly quote
+    unslop: 19
+    pattern: '[‘’“”]'
+    max: 0
+    fix: Use straight quotes.
+  decorative_emoji:
+    name: decorative emoji
+    unslop: 18
+    pattern: '[\U0001F300-\U0001FAFF✀-➿☀-⛿]'
+    max: 0
+    fix: Remove it.
+  inline_header_list:
+    name: inline-header list
+    unslop: 16
+    # Bold label + colon that restates the line. A bold lead-in ending in a
+    # period is explicitly fine per unslop 16, so the colon is the test.
+    pattern: '^\s*[-*]\s+\*\*[^*]{2,40}(?::\*\*|\*\*\s*:)'
+    max: 0
+    fix: Convert to prose, or end the bold lead-in with a period and add new detail.
+  title_case_heading:
+    name: title case heading
+    unslop: 17
+    pattern: '^#{1,6}\s+(?:[A-Z][a-z]*\s+){2,}[A-Z][a-z]*\s*$'
+    max: 0
+    fix: Sentence case.
+  banned_word:
+    name: banned word
+    unslop: 7
+    fix: Use the plain word.
+    # Union of unslop 7/26/31 and no-ai-slop "banned outright". Word-boundary matched.
+    words:
+      - delve
+      - foster
+      - fostering
+      - leverage
+      - leveraging
+      - utilize
+      - utilise
+      - facilitate
+      - empower
+      - streamline
+      - robust
+      - cutting-edge
+      - paradigm
+      - paradigm shift
+      - game changer
+      - game-changer
+      - tapestry
+      - realm
+      - beacon
+      - multifaceted
+      - meticulous
+      - meticulously
+      - intricate
+      - paramount
+      - transformative
+      - elevate
+      - embark
+      - supercharge
+      - ever-evolving
+      - testament
+      - pivotal
+      - underscore
+      - underscores
+      - underscoring
+      - showcase
+      - showcases
+      - showcasing
+      - garner
+      - interplay
+      - vibrant
+      - groundbreaking
+      - nestled
+      - breathtaking
+      - must-visit
+      - substrate
+      - flywheel
+      - north star
+      - gold-plating
+      - bedrock
+      - nexus
+      - modality
+
+# Fifteen judgments. Each becomes one noul in call 1, and one choice in call 2
+# if it fires. instructions/criteria go to the model verbatim; the id does not.
+jev:
+  binary_contrast:
+    name: binary contrast
+    unslop: 9
+    threshold: 0.70
+    instructions: >
+      The passage contains a sentence built as a negated contrast, where the writer
+      denies one framing in order to assert another. Forms include "not just X, but Y",
+      "it is not X, it is Y", "the question is not X, it is Y", and "X is not the
+      problem. Y is."
+    criteria:
+      true: A sentence denies one framing in order to assert a second one.
+      false: >
+        Every claim is stated directly. A plain negation of a fact, such as "the
+        run did not finish", is not this pattern.
+    locate: Which numbered line is built as a negated contrast?
+    fix: State the second half directly and delete the first.
+
+  fake_profound_kicker:
+    name: fake-profound kicker
+    unslop: null
+    threshold: 0.70
+    instructions: >
+      The final line of the passage is an aphorism, metaphor or mic-drop rather than a
+      concrete point. It restates the passage as something quotable instead of ending on
+      a fact, an instruction or a next action.
+    criteria:
+      true: The last line is a quotable abstraction, a rhetorical question, or a cute metaphor.
+      false: The last line states a fact, a number, an instruction, or what happens next.
+    locate: Which numbered line is the aphoristic or mic-drop ending?
+    fix: Delete it. End on the clearest concrete sentence already present.
+
+  summary_recap_ending:
+    name: summary-recap ending
+    unslop: 25
+    threshold: 0.70
+    instructions: >
+      The passage ends with a paragraph that restates what the reader has just read,
+      rather than adding a new fact, takeaway or next action. Markers include "in
+      conclusion", "ultimately", "overall", "to sum up".
+    criteria:
+      true: The closing restates earlier content without adding anything new.
+      false: The closing adds a new fact, a next action, or a concrete takeaway.
+    locate: Which numbered line begins the closing restatement?
+    fix: Cut it. End on the last concrete point.
+
+  throat_clearing:
+    name: throat-clearing opener
+    unslop: 23
+    threshold: 0.70
+    instructions: >
+      A sentence delays the point with a stock preamble instead of stating it. Forms
+      include "here is the thing", "let me be clear", "I'll be honest", "the
+      uncomfortable truth is", "it is worth noting that", "it is important to note that".
+    criteria:
+      true: A sentence announces that a point is coming instead of making it.
+      false: >
+        Every sentence carries content. A personal aside that supplies real context,
+        tension or character is not throat-clearing.
+    locate: Which numbered line delays the point with a stock preamble?
+    fix: Delete the preamble and state the point.
+
+  faux_insight:
+    name: faux-insight setup
+    unslop: null
+    threshold: 0.70
+    instructions: >
+      A sentence flatters the writer as the lone expert before making a claim. Forms
+      include "what most people get wrong", "here is what nobody tells you", "this is
+      the part everyone misses", "most teams never do this".
+    criteria:
+      true: A claim is introduced by asserting that others fail to see it.
+      false: Claims stand on their own without a preamble about what others miss.
+    locate: Which numbered line flatters the writer before making its claim?
+    fix: Cut the setup. Let the claim stand alone.
+
+  colon_reveal:
+    name: colon reveal
+    unslop: 14
+    threshold: 0.70
+    instructions: >
+      A noun phrase, then a colon, then a dramatic lowercase reveal, used for effect
+      rather than to introduce a list, a label or a quote. For example "the detail that
+      makes it work: a separate agent grades it".
+    criteria:
+      true: A colon is used mid-sentence for drama rather than to introduce a list or label.
+      false: >
+        Colons appear only before lists, labels, quotes or code, or do not appear
+        at all.
+    locate: Which numbered line uses a colon for a dramatic reveal?
+    fix: Rewrite as a plain sentence.
+
+  superficial_ing:
+    name: superficial -ing clause
+    unslop: 3
+    threshold: 0.70
+    instructions: >
+      A trailing clause beginning with a participle claims to explain the significance
+      of what was just stated, without adding a fact. Markers include "highlighting",
+      "underscoring", "reflecting", "showcasing", "demonstrating", "ensuring",
+      "cementing", "solidifying".
+    criteria:
+      true: A trailing participle clause asserts significance instead of adding a fact.
+      false: >
+        Trailing clauses add a concrete consequence, mechanism or number, or there
+        are none.
+    locate: Which numbered line ends with a participle clause that asserts significance?
+    fix: Replace it with the concrete consequence, or delete it.
+
+  importance_puffery:
+    name: importance puffery
+    unslop: 1
+    threshold: 0.70
+    instructions: >
+      A sentence asserts that something matters rather than stating the fact and letting
+      the reader judge. Forms include "stands as a testament to", "marks a pivotal
+      moment", "plays a vital role", "solidifies its position", "represents a major step".
+    criteria:
+      true: Significance is asserted rather than shown.
+      false: Facts are stated plainly and the reader is left to judge their weight.
+    locate: Which numbered line asserts importance instead of stating the fact?
+    fix: State the fact. Delete the claim about its importance.
+
+  weasel_attribution:
+    name: weasel attribution
+    unslop: 5
+    threshold: 0.70
+    instructions: >
+      A claim is attributed to an unnamed authority. Forms include "experts agree",
+      "studies show", "industry reports suggest", "many argue", "it is widely regarded as",
+      "research indicates".
+    criteria:
+      true: A claim is sourced to an unnamed group or body of work.
+      false: Sources are named, or claims are made in the writer's own voice.
+    locate: Which numbered line attributes a claim to an unnamed authority?
+    fix: Name the source or cut the claim.
+
+  fake_strong_verb:
+    name: fake-strong verb
+    unslop: 8
+    threshold: 0.70
+    instructions: >
+      An inflated verb stands in for "is" or "has". Forms include "serves as", "stands as",
+      "boasts", "features", "represents", "constitutes", "acts as a", "functions as".
+    criteria:
+      true: An inflated verb phrase replaces a plain "is" or "has".
+      false: Plain verbs are used, or the verb carries real meaning the plain word would lose.
+    locate: Which numbered line uses an inflated verb in place of "is" or "has"?
+    fix: Use "is" or "has".
+
+  forced_triad:
+    name: forced rule of three
+    unslop: 10
+    threshold: 0.70
+    instructions: >
+      Items are grouped into threes for rhythm rather than because there are three of them.
+      The third item is vaguer than the first two, or repeats one of them.
+    criteria:
+      true: A list of three exists where the third item is padding or a near-repeat.
+      false: >
+        Lists use their natural length. A list of three whose items are all distinct
+        and load-bearing is not this pattern.
+    locate: Which numbered line pads a list to three?
+    fix: Use the natural number.
+
+  feeling_not_mechanism:
+    name: feeling instead of mechanism
+    unslop: 27
+    threshold: 0.70
+    instructions: >
+      A sentence names how something feels, or a quality it has, where a mechanism, a
+      number or a concrete instruction belongs. The test: could this sentence appear
+      unchanged in another project's documentation? Examples of the pattern are "the
+      database stays close at hand", "types that follow your schema", "SQL you can read".
+    criteria:
+      true: >
+        At least one sentence names a feeling or an unmeasured quality where a
+        mechanism, number or instruction would say more.
+      false: >
+        Claims name a mechanism, a number, a named component, or something the reader
+        can do or check.
+    locate: Which numbered line names a feeling where a mechanism or number belongs?
+    fix: Name the mechanism or the number. If neither exists, cut the sentence.
+
+  hidden_actor_passive:
+    name: passive with hidden actor
+    unslop: 29
+    threshold: 0.70
+    instructions: >
+      A sentence uses a passive construction where the actor is known and naming it would
+      be clearer. For example "queries are validated" where the compiler does the
+      validating, or "the decision was made".
+    criteria:
+      true: A passive sentence hides an actor the writer knows.
+      false: >
+        Sentences name their actor, or the actor is genuinely unknown or irrelevant.
+    locate: Which numbered line hides a known actor behind a passive verb?
+    fix: Name the actor and make it the subject.
+
+  synonym_cycling:
+    name: synonym cycling
+    unslop: 11
+    threshold: 0.70
+    instructions: >
+      One thing is referred to by several different words across nearby sentences, for
+      style rather than because the meanings differ. For example the same tool called
+      "the agent", then "the assistant", then "the system".
+    criteria:
+      true: A single referent is renamed across nearby sentences with no change in meaning.
+      false: Each term names a distinct thing, or one term is repeated consistently.
+    locate: Which numbered line renames something already named differently above?
+    fix: Pick one word and repeat it.
+
+  rhetorical_setup:
+    name: rhetorical setup
+    unslop: null
+    threshold: 0.70
+    instructions: >
+      A question or teaser is posed for effect and then answered by the writer, or used to
+      build suspense. Forms include "what if I told you", "think about it", "plot twist",
+      and a question immediately answered in the next sentence.
+    criteria:
+      true: A question or teaser is posed for effect rather than to be answered by the reader.
+      false: >
+        Points are made directly. A genuine question left open for the reader is not
+        this pattern.
+    locate: Which numbered line poses a question or teaser for effect?
+    fix: Drop the setup and make the point.
