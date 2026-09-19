@@ -7,3 +7,5 @@ bench/local/
 *.egg-info/
 build/
 dist/
+demo/frames/
+demo/post.txt
